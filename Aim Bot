@@ -17,14 +17,14 @@ fovCircle.Radius = FOV
 fovCircle.Filled = false
 fovCircle.Position = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
 
--- ฟังก์ชันตรวจสอบว่าสามารถเห็นหัวเป้าหมายได้บางส่วน
 local function canSeePartially(head)
-    local rayOrigin = camera.CFrame.Position
+    local camCF = camera:GetRenderCFrame()
+    local rayOrigin = camCF.Position
+
     local raycastParams = RaycastParams.new()
     raycastParams.FilterDescendantsInstances = {player.Character}
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 
-    -- จุดรอบหัว 5 จุด (กลาง, ซ้าย, ขวา, บน, ล่าง)
     local offsets = {
         Vector3.new(0, 0, 0),
         Vector3.new(0.3, 0, 0),
@@ -34,35 +34,38 @@ local function canSeePartially(head)
     }
 
     local visibleCount = 0
-    for _, offset in ipairs(offsets) do
-        local targetPos = head.Position + offset
-        local direction = (targetPos - rayOrigin)
-        local result = workspace:Raycast(rayOrigin, direction, raycastParams)
+
+    for _, off in ipairs(offsets) do
+        local targetPos = head.Position + off
+        local dir = targetPos - rayOrigin
+
+        local result = workspace:Raycast(rayOrigin, dir, raycastParams)
         if not result or result.Instance:IsDescendantOf(head.Parent) then
             visibleCount += 1
         end
     end
 
-    -- ถ้าเห็นอย่างน้อย 1 จุด (หัวโผล่นิดเดียว) ให้ล็อก
     return visibleCount > 0, visibleCount >= #offsets
 end
 
--- หาผู้เล่นที่ใกล้กลางหน้าจอที่สุดใน FOV
 local function getClosestPlayerInFOV()
     local closest = nil
     local closestDist = FOV
     local center = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
 
-    for _, p in pairs(game.Players:GetPlayers()) do
+    for _, p in ipairs(game.Players:GetPlayers()) do
         if p ~= player and p.Character and p.Character:FindFirstChild("Head") then
             local head = p.Character.Head
             local screenPos, onScreen = camera:WorldToViewportPoint(head.Position)
+
             if onScreen then
                 local dist = (center - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+
                 if dist < closestDist then
-                    local canSee, fullHeadVisible = canSeePartially(head)
+                    local canSee, fullVisible = canSeePartially(head)
+
                     if canSee then
-                        closest = {head = head, full = fullHeadVisible}
+                        closest = {head = head, full = fullVisible}
                         closestDist = dist
                     end
                 end
@@ -73,14 +76,12 @@ local function getClosestPlayerInFOV()
     return closest
 end
 
--- เริ่มล็อคเมื่อกดปุ่ม T
 uis.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Enum.KeyCode.T then
         locking = true
     end
 end)
 
--- ปล่อยล็อคเมื่อปล่อยปุ่ม T
 uis.InputEnded:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.T then
         locking = false
@@ -88,25 +89,25 @@ uis.InputEnded:Connect(function(input)
     end
 end)
 
--- อัพเดตทุกเฟรม
 runService.RenderStepped:Connect(function()
     fovCircle.Position = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
     fovCircle.Radius = FOV
 
     if locking then
         local found = getClosestPlayerInFOV()
+
         if found and found.head then
             target = found
             local aimPoint = found.head.Position
 
-            -- ถ้าเห็นเต็มหัวให้เล็งกลางหัว (ยกขึ้นนิดหน่อย)
             if found.full then
                 aimPoint = aimPoint + Vector3.new(0, 0.1, 0)
             end
 
-            local currentCFrame = camera.CFrame
-            local targetCFrame = CFrame.new(currentCFrame.Position, aimPoint)
-            camera.CFrame = currentCFrame:Lerp(targetCFrame, smoothness)
+            local camCF = camera:GetRenderCFrame()
+            local newCF = CFrame.new(camCF.Position, aimPoint)
+
+            camera.CFrame = camCF:Lerp(newCF, smoothness)
         end
     end
 end)
