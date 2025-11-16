@@ -8,7 +8,6 @@ local target = nil
 local FOV = 60
 local smoothness = 0.4
 
--- วงกลม FOV
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = true
 fovCircle.Thickness = 2
