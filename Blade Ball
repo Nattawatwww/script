@@ -1,0 +1,62 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Vim = game:GetService("VirtualInputManager")
+
+local lp = Players.LocalPlayer
+local Balls = workspace:WaitForChild("Balls")
+local PARRY_DISTANCE = 25
+local PREDICT_TIME = 0.03 -- พยากรณ์น้อยสุด เพื่อไวที่สุด
+
+if _G.ParryConnection then _G.ParryConnection:Disconnect() end
+
+-- ฟังก์ชันกด F แบบไม่มี cooldown
+local function parry()
+    Vim:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+    Vim:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+end
+
+-- พยากรณ์ตำแหน่งบอลเล็กน้อย
+local function predictBallPosition(ball, dt)
+    return ball.Position + ball.AssemblyLinearVelocity * dt
+end
+
+-- ระยะ Parry ปรับตามความเร็วบอล
+local function getParryDistance(ball)
+    local speed = ball.AssemblyLinearVelocity.Magnitude
+    return math.clamp(PARRY_DISTANCE + speed * 0.05, PARRY_DISTANCE, 50)
+end
+
+-- หาบอลที่ใกล้ที่สุดในระยะ
+local function getClosestBall(hrp)
+    local closestBall = nil
+    local shortestDist = math.huge
+    for _, ball in ipairs(Balls:GetChildren()) do
+        local ballPart = ball:IsA("BasePart") and ball or ball:FindFirstChildWhichIsA("BasePart")
+        if ballPart then
+            local predictedPos = predictBallPosition(ballPart, PREDICT_TIME)
+            local dist = (predictedPos - hrp.Position).Magnitude
+            local parryDist = getParryDistance(ballPart)
+            if dist < shortestDist and dist <= parryDist then
+                shortestDist = dist
+                closestBall = ballPart
+            end
+        end
+    end
+    return closestBall
+end
+
+-- Heartbeat Loop ตรวจทุกเฟรม
+_G.ParryConnection = RunService.Heartbeat:Connect(function()
+    local char = lp.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local highlight = char:FindFirstChild("Highlight")
+    if not hrp or not highlight then return end
+
+    if highlight.Enabled then
+        local ball = getClosestBall(hrp)
+        if ball then
+            parry() -- กดทันที
+        end
+    end
+end)
