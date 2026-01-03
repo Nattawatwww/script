@@ -1,0 +1,85 @@
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+local Baddies = Workspace:WaitForChild("Baddies")
+
+local ENABLED = false
+local DISTANCE = 7 -- ระยะหัวอยู่หน้ากล้อง
+
+local connections = {}
+
+local function pullHead(zombie)
+    if not zombie:IsA("Model") then return end
+
+    local head = zombie:WaitForChild("Head", 5)
+    local humanoid = zombie:FindFirstChildOfClass("Humanoid")
+    local hrp = zombie:FindFirstChild("HumanoidRootPart")
+
+    if not head or not humanoid or not hrp then return end
+    if head:FindFirstChild("Pulled") then return end
+
+    -- กันการตี / การชน
+    head.CanCollide = false
+    head.CanTouch = false
+    head.Massless = true
+
+    hrp.CanCollide = false
+    hrp.CanTouch = false
+
+    local tag = Instance.new("BoolValue")
+    tag.Name = "Pulled"
+    tag.Parent = head
+
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        if not ENABLED or humanoid.Health <= 0 then
+            if conn then conn:Disconnect() end
+            return
+        end
+
+        head.CFrame = camera.CFrame * CFrame.new(0, 0, -DISTANCE)
+    end)
+
+    table.insert(connections, conn)
+end
+
+local function enable()
+    ENABLED = true
+
+    for _, zombie in ipairs(Baddies:GetChildren()) do
+        task.spawn(pullHead, zombie)
+    end
+end
+
+local function disable()
+    ENABLED = false
+
+    -- ตัดการดึงทั้งหมด
+    for _, c in ipairs(connections) do
+        pcall(function() c:Disconnect() end)
+    end
+    table.clear(connections)
+end
+
+-- ซอมบี้เกิดใหม่
+Baddies.ChildAdded:Connect(function(zombie)
+    if ENABLED then
+        task.spawn(pullHead, zombie)
+    end
+end)
+
+-- ปุ่ม C เปิด / ปิด
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.C then
+        if ENABLED then
+            disable()
+        else
+            enable()
+        end
+    end
+end)
