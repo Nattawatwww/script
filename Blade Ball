@@ -4,59 +4,74 @@ local Vim = game:GetService("VirtualInputManager")
 
 local lp = Players.LocalPlayer
 local Balls = workspace:WaitForChild("Balls")
-local PARRY_DISTANCE = 25
-local PREDICT_TIME = 0.03 -- พยากรณ์น้อยสุด เพื่อไวที่สุด
 
-if _G.ParryConnection then _G.ParryConnection:Disconnect() end
+-- 🔥 จูนโหด
+local BASE_DISTANCE = 35
+local MAX_DISTANCE = 70
+local BASE_PREDICT = 0.015
 
--- ฟังก์ชันกด F แบบไม่มี cooldown
+if _G.ParryConnection then
+    _G.ParryConnection:Disconnect()
+end
+
+-- กด F โหด (double tap เฟรมเดียว)
 local function parry()
+    Vim:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+    Vim:SendKeyEvent(false, Enum.KeyCode.F, false, game)
     Vim:SendKeyEvent(true, Enum.KeyCode.F, false, game)
     Vim:SendKeyEvent(false, Enum.KeyCode.F, false, game)
 end
 
--- พยากรณ์ตำแหน่งบอลเล็กน้อย
-local function predictBallPosition(ball, dt)
-    return ball.Position + ball.AssemblyLinearVelocity * dt
-end
-
--- ระยะ Parry ปรับตามความเร็วบอล
-local function getParryDistance(ball)
+-- predict อัตโนมัติตามความเร็ว
+local function predict(ball)
     local speed = ball.AssemblyLinearVelocity.Magnitude
-    return math.clamp(PARRY_DISTANCE + speed * 0.05, PARRY_DISTANCE, 50)
+    local predictTime = math.clamp(BASE_PREDICT + speed * 0.00015, 0.015, 0.06)
+    return ball.Position + ball.AssemblyLinearVelocity * predictTime
 end
 
--- หาบอลที่ใกล้ที่สุดในระยะ
-local function getClosestBall(hrp)
-    local closestBall = nil
-    local shortestDist = math.huge
-    for _, ball in ipairs(Balls:GetChildren()) do
-        local ballPart = ball:IsA("BasePart") and ball or ball:FindFirstChildWhichIsA("BasePart")
-        if ballPart then
-            local predictedPos = predictBallPosition(ballPart, PREDICT_TIME)
-            local dist = (predictedPos - hrp.Position).Magnitude
-            local parryDist = getParryDistance(ballPart)
-            if dist < shortestDist and dist <= parryDist then
-                shortestDist = dist
-                closestBall = ballPart
+-- ระยะ parry ตามสปีด (360)
+local function getDistance(ball)
+    local speed = ball.AssemblyLinearVelocity.Magnitude
+    return math.clamp(BASE_DISTANCE + speed * 0.08, BASE_DISTANCE, MAX_DISTANCE)
+end
+
+-- เลือกลูกที่อันตรายที่สุด (ไม่สนมุม)
+local function getThreatBall(hrp)
+    local best
+    local bestScore = math.huge
+
+    for _, b in ipairs(Balls:GetChildren()) do
+        local part = b:IsA("BasePart") and b or b:FindFirstChildWhichIsA("BasePart")
+        if part then
+            local pos = predict(part)
+            local dist = (pos - hrp.Position).Magnitude
+            local maxDist = getDistance(part)
+
+            if dist <= maxDist then
+                local speed = part.AssemblyLinearVelocity.Magnitude
+                local score = dist - speed * 0.2 -- ลูกเร็ว = อันตรายกว่า
+                if score < bestScore then
+                    bestScore = score
+                    best = part
+                end
             end
         end
     end
-    return closestBall
+
+    return best
 end
 
--- Heartbeat Loop ตรวจทุกเฟรม
+-- LOOP ระดับ AI
 _G.ParryConnection = RunService.Heartbeat:Connect(function()
     local char = lp.Character
     if not char then return end
+
     local hrp = char:FindFirstChild("HumanoidRootPart")
     local highlight = char:FindFirstChild("Highlight")
-    if not hrp or not highlight then return end
+    if not hrp or not highlight or not highlight.Enabled then return end
 
-    if highlight.Enabled then
-        local ball = getClosestBall(hrp)
-        if ball then
-            parry() -- กดทันที
-        end
+    local ball = getThreatBall(hrp)
+    if ball then
+        parry()
     end
 end)
