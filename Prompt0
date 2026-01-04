@@ -1,0 +1,15 @@
+local function setPrompt(prompt)
+    if prompt:IsA("ProximityPrompt") then
+        prompt.HoldDuration = 0
+    end
+end
+
+-- Prompt ที่มีอยู่แล้ว
+for _, v in ipairs(workspace:GetDescendants()) do
+    setPrompt(v)
+end
+
+-- Prompt ที่ถูกสร้างใหม่ภายหลัง
+workspace.DescendantAdded:Connect(function(desc)
+    setPrompt(desc)
+end)
