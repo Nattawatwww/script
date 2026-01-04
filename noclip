@@ -1,0 +1,60 @@
+-- LocalScript
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local noclip = false
+
+-- เก็บค่า CanCollide เดิมของแต่ละ Part
+local originalCollision = {}
+
+local function cacheCharacter(character)
+    originalCollision = {}
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            originalCollision[v] = v.CanCollide
+        end
+    end
+end
+
+-- เมื่อกด C
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.C then
+        noclip = not noclip
+        print("Noclip:", noclip)
+
+        if player.Character then
+            if noclip then
+                -- เปิด noclip → จำค่าเดิม
+                cacheCharacter(player.Character)
+            else
+                -- ปิด noclip → คืนค่าเดิม
+                for part, canCollide in pairs(originalCollision) do
+                    if part and part.Parent then
+                        part.CanCollide = canCollide
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- ทำ noclip ตอนเปิด
+RunService.Stepped:Connect(function()
+    if noclip and player.Character then
+        for _, v in ipairs(player.Character:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- กรณีตัวละครเกิดใหม่
+player.CharacterAdded:Connect(function(char)
+    noclip = false
+    originalCollision = {}
+end)
