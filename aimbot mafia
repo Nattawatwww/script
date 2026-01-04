@@ -1,0 +1,119 @@
+local Settings = {
+    Keybind = Enum.KeyCode.F,
+    FOV = 60,
+    Smoothness = 0.4,
+    Prediction = 0, -- แม่นยำมากขึ้น
+    AimPart = "Head",
+    VisibleCheck = true,
+    UpdateInterval = 0 -- อัปเดตเป้าทุก 0.1 วินาที
+}
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local Player = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+-- 🔥 Target Folders
+local TargetFolders = {
+    Workspace:WaitForChild("Enemies"),
+    Workspace.Map.MapModel.JewelryStore:WaitForChild("Npcs"),
+    Workspace.Map.MapModel.CargoShip:WaitForChild("Npcs"),
+    Workspace.Map:WaitForChild("Civilians")
+}
+
+local Locking = false
+local closestTarget = nil
+local lastUpdate = 0
+
+-- FOV Circle
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = true
+FOVCircle.Thickness = 2
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Radius = Settings.FOV
+FOVCircle.Filled = false
+FOVCircle.Transparency = 1
+
+-- Visibility Check
+local function IsVisible(targetPart)
+    if not Settings.VisibleCheck then return true end
+
+    local origin = Camera.CFrame.Position
+    local direction = targetPart.Position - origin
+
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = { Player.Character, Camera }
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+
+    local result = Workspace:Raycast(origin, direction, params)
+    return result and result.Instance:IsDescendantOf(targetPart.Parent)
+end
+
+-- หาเป้าที่ใกล้กลางจอที่สุด
+local function GetClosestTarget()
+    local closest = nil
+    local shortestDist = Settings.FOV
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, folder in ipairs(TargetFolders) do
+        for _, obj in ipairs(folder:GetChildren()) do
+            if obj:IsA("Model") then
+                local humanoid = obj:FindFirstChildOfClass("Humanoid")
+                local part = obj:FindFirstChild(Settings.AimPart)
+
+                if humanoid and humanoid.Health > 0 and part then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local dist = (center - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                        if dist < shortestDist and IsVisible(part) then
+                            closest = part
+                            shortestDist = dist
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return closest
+end
+
+-- Input
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.KeyCode == Settings.Keybind then
+        Locking = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Settings.Keybind then
+        Locking = false
+    end
+end)
+
+-- Main loop
+RunService.RenderStepped:Connect(function(deltaTime)
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    FOVCircle.Radius = Settings.FOV
+
+    -- Update target แบบเบา ๆ
+    lastUpdate = lastUpdate + deltaTime
+    if lastUpdate >= Settings.UpdateInterval then
+        closestTarget = GetClosestTarget()
+        lastUpdate = 0
+    end
+
+    -- Aimlock
+    if Locking and closestTarget then
+        local predict = closestTarget.AssemblyLinearVelocity * Settings.Prediction
+        local aimPos = closestTarget.Position + predict
+
+        Camera.CFrame = Camera.CFrame:Lerp(
+            CFrame.lookAt(Camera.CFrame.Position, aimPos),
+            Settings.Smoothness
+        )
+    end
+end)
