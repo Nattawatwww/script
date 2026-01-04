@@ -1,0 +1,210 @@
+--==================================================
+-- SERVICES
+--==================================================
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+--==================================================
+-- CONFIG
+--==================================================
+local SPEED = 37
+
+local KEY_NOCLIP = Enum.KeyCode.C
+local KEY_FLY_1  = Enum.KeyCode.Z
+local KEY_FLY_2  = Enum.KeyCode.X
+
+local TARGET_1 = CFrame.new(
+	-385.564789, 21, -807.528015,
+	0.992203057, -3.25608234e-08, 0.124631964,
+	4.23338093e-08, 1, -7.57663656e-08,
+	-0.124631964, 8.04517626e-08, 0.992203057
+)
+
+local TARGET_2 = CFrame.new(
+	-367.444214, 21, -373.802002,
+	-0.996147037, -3.36193686e-08, -0.0876988769,
+	-3.5221813e-08, 1, 1.67247052e-08,
+	0.0876988769, 1.97491783e-08, -0.996147037
+)
+
+--==================================================
+-- PROXIMITY PROMPT (INSTANT)
+--==================================================
+local function setPrompt(obj)
+	if obj:IsA("ProximityPrompt") then
+		obj.HoldDuration = 0
+	end
+end
+
+for _, v in ipairs(workspace:GetDescendants()) do
+	setPrompt(v)
+end
+
+workspace.DescendantAdded:Connect(setPrompt)
+
+--==================================================
+-- REMOVE NOCLIP DETECTOR (ANTI CHECK)
+--==================================================
+local function removeNoclipDetector(character)
+	-- กรณีมีอยู่แล้ว
+	local detector = character:FindFirstChild("NoclipDetector")
+	if detector then
+		detector:Destroy()
+	end
+
+	-- กันกรณีสร้างมาทีหลัง
+	character.ChildAdded:Connect(function(child)
+		if child.Name == "NoclipDetector" then
+			child:Destroy()
+		end
+	end)
+end
+
+--==================================================
+-- NOCLIP / STATE
+--==================================================
+local noclip = false
+local flying = false
+local noclipConn
+local originalState = {}
+
+local function SaveState(character)
+	originalState = {}
+	for _, part in ipairs(character:GetDescendants()) do
+		if part:IsA("BasePart") then
+			originalState[part] = {
+				CanCollide = part.CanCollide,
+				CanTouch   = part.CanTouch,
+				CanQuery   = part.CanQuery
+			}
+		end
+	end
+end
+
+local function RestoreState()
+	for part, state in pairs(originalState) do
+		if part and part.Parent then
+			part.CanCollide = state.CanCollide
+			part.CanTouch   = state.CanTouch
+			part.CanQuery   = state.CanQuery
+		end
+	end
+	originalState = {}
+end
+
+local function EnableNoClip(character)
+	if noclipConn then noclipConn:Disconnect() end
+	noclipConn = RunService.Heartbeat:Connect(function()
+		for _, part in ipairs(character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
+				part.CanTouch   = false
+				part.CanQuery   = false
+			end
+		end
+	end)
+end
+
+local function DisableNoClip()
+	if noclipConn then
+		noclipConn:Disconnect()
+		noclipConn = nil
+	end
+end
+
+--==================================================
+-- SMOOTH FLY
+--==================================================
+local function SmoothFly(targetCFrame)
+	if flying then return end
+	flying = true
+
+	local char = player.Character or player.CharacterAdded:Wait()
+	local hrp = char:WaitForChild("HumanoidRootPart")
+
+	SaveState(char)
+	EnableNoClip(char)
+
+	-- STEP 1 : ปรับ Y
+	local startPos = hrp.Position
+	local targetY = targetCFrame.Position.Y
+	local tY = math.abs(startPos.Y - targetY) / SPEED
+
+	local t1 = TweenService:Create(
+		hrp,
+		TweenInfo.new(tY, Enum.EasingStyle.Linear),
+		{ CFrame = CFrame.new(startPos.X, targetY, startPos.Z) * hrp.CFrame.Rotation }
+	)
+	t1:Play()
+	t1.Completed:Wait()
+
+	-- STEP 2 : บินไปเป้า
+	local distance = (hrp.Position - targetCFrame.Position).Magnitude
+	local tMove = distance / SPEED
+
+	local t2 = TweenService:Create(
+		hrp,
+		TweenInfo.new(tMove, Enum.EasingStyle.Linear),
+		{ CFrame = targetCFrame }
+	)
+	t2:Play()
+	t2.Completed:Wait()
+
+	DisableNoClip()
+	RestoreState()
+
+	flying = false
+end
+
+--==================================================
+-- INPUT
+--==================================================
+UserInputService.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+
+	-- Toggle Noclip
+	if input.KeyCode == KEY_NOCLIP then
+		noclip = not noclip
+		local char = player.Character
+		if char then
+			if noclip then
+				SaveState(char)
+				EnableNoClip(char)
+			else
+				DisableNoClip()
+				RestoreState()
+			end
+		end
+	end
+
+	-- Fly
+	if input.KeyCode == KEY_FLY_1 then
+		SmoothFly(TARGET_1)
+	end
+
+	if input.KeyCode == KEY_FLY_2 then
+		SmoothFly(TARGET_2)
+	end
+end)
+
+--==================================================
+-- CHARACTER SPAWN
+--==================================================
+local function onCharacterAdded(character)
+	noclip = false
+	flying = false
+	DisableNoClip()
+	originalState = {}
+
+	removeNoclipDetector(character)
+end
+
+if player.Character then
+	onCharacterAdded(player.Character)
+end
+
+player.CharacterAdded:Connect(onCharacterAdded)
