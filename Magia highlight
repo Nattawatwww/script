@@ -1,0 +1,90 @@
+--// SERVICES
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+--// PATH
+local Loot =
+    workspace
+    :WaitForChild("Map")
+    :WaitForChild("MapModel")
+    :WaitForChild("CargoShip")
+    :WaitForChild("Loot")
+
+--// GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "WeaponCrateCounter"
+gui.ResetOnSpawn = false
+gui.Parent = playerGui
+
+local frame = Instance.new("Frame")
+frame.Parent = gui
+frame.Size = UDim2.new(0, 240, 0, 45)
+frame.Position = UDim2.new(0, 15, 1, -60)
+frame.AnchorPoint = Vector2.new(0, 1)
+frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+frame.BackgroundTransparency = 0.15
+frame.BorderSizePixel = 0
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = frame
+
+local text = Instance.new("TextLabel")
+text.Parent = frame
+text.Size = UDim2.new(1, -12, 1, -12)
+text.Position = UDim2.new(0, 6, 0, 6)
+text.BackgroundTransparency = 1
+text.Font = Enum.Font.GothamBold
+text.TextScaled = true
+text.TextColor3 = Color3.fromRGB(255,200,60)
+text.Text = "WeaponCrate : 0"
+
+--// HIGHLIGHT FUNCTION
+local function applyHighlight(crate)
+    if crate:FindFirstChild("CrateHighlight") then return end
+
+    local h = Instance.new("Highlight")
+    h.Name = "CrateHighlight"
+    h.FillColor = Color3.fromRGB(255, 0, 0)
+    h.FillTransparency = 0.5
+    h.OutlineColor = Color3.fromRGB(255, 80, 80)
+    h.OutlineTransparency = 0
+    h.Adornee = crate
+    h.Parent = crate
+end
+
+local function removeHighlight(crate)
+    local h = crate:FindFirstChild("CrateHighlight")
+    if h then
+        h:Destroy()
+    end
+end
+
+--// UPDATE FUNCTION
+local function updateAll()
+    local count = 0
+
+    for _, v in ipairs(Loot:GetChildren()) do
+        if v.Name == "WeaponCrate" then
+            count += 1
+            applyHighlight(v)
+        end
+    end
+
+    text.Text = "WeaponCrate : " .. count
+
+    -- ถ้าไม่เหลือกล่อง ล้าง Highlight ทั้งหมด
+    if count == 0 then
+        for _, v in ipairs(Loot:GetChildren()) do
+            if v.Name == "WeaponCrate" then
+                removeHighlight(v)
+            end
+        end
+    end
+end
+
+--// REALTIME UPDATE
+updateAll()
+Loot.ChildAdded:Connect(updateAll)
+Loot.ChildRemoved:Connect(updateAll)
