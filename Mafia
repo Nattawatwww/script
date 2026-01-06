@@ -11,28 +11,21 @@ local player = Players.LocalPlayer
 --==================================================
 -- CONFIG
 --==================================================
-local SPEED = 37
+local SPEED_FLY_1 = 35
+local SPEED_FLY_2 = 10000
+local SPEED_FLY_3 = 10000
 
 local KEY_NOCLIP = Enum.KeyCode.C
-local KEY_FLY_1  = Enum.KeyCode.Z
-local KEY_FLY_2  = Enum.KeyCode.X
+local KEY_FLY_1  = Enum.KeyCode.T
+local KEY_FLY_2  = Enum.KeyCode.B
+local KEY_FLY_3  = Enum.KeyCode.V
 
-local TARGET_1 = CFrame.new(
-	-385.564789, 21, -807.528015,
-	0.992203057, -3.25608234e-08, 0.124631964,
-	4.23338093e-08, 1, -7.57663656e-08,
-	-0.124631964, 8.04517626e-08, 0.992203057
-)
-
-local TARGET_2 = CFrame.new(
-	-367.444214, 21, -373.802002,
-	-0.996147037, -3.36193686e-08, -0.0876988769,
-	-3.5221813e-08, 1, 1.67247052e-08,
-	0.0876988769, 1.97491783e-08, -0.996147037
-)
+local TARGET_1 = CFrame.new(-385.564789, 21, -807.528015)
+local TARGET_2 = CFrame.new(-367.444214, 20, -373.802002)
+local TARGET_3 = CFrame.new(-57.7530785, 28, -405.38974)
 
 --==================================================
--- PROXIMITY PROMPT (INSTANT)
+-- PROXIMITY PROMPT INSTANT
 --==================================================
 local function setPrompt(obj)
 	if obj:IsA("ProximityPrompt") then
@@ -43,20 +36,15 @@ end
 for _, v in ipairs(workspace:GetDescendants()) do
 	setPrompt(v)
 end
-
 workspace.DescendantAdded:Connect(setPrompt)
 
 --==================================================
--- REMOVE NOCLIP DETECTOR (ANTI CHECK)
+-- REMOVE NOCLIP DETECTOR
 --==================================================
 local function removeNoclipDetector(character)
-	-- กรณีมีอยู่แล้ว
 	local detector = character:FindFirstChild("NoclipDetector")
-	if detector then
-		detector:Destroy()
-	end
+	if detector then detector:Destroy() end
 
-	-- กันกรณีสร้างมาทีหลัง
 	character.ChildAdded:Connect(function(child)
 		if child.Name == "NoclipDetector" then
 			child:Destroy()
@@ -65,7 +53,7 @@ local function removeNoclipDetector(character)
 end
 
 --==================================================
--- NOCLIP / STATE
+-- NOCLIP STATE
 --==================================================
 local noclip = false
 local flying = false
@@ -117,9 +105,9 @@ local function DisableNoClip()
 end
 
 --==================================================
--- SMOOTH FLY
+-- SMOOTH FLY + VELOCITY LOCK
 --==================================================
-local function SmoothFly(targetCFrame)
+local function SmoothFly(targetCFrame, speed)
 	if flying then return end
 	flying = true
 
@@ -129,30 +117,44 @@ local function SmoothFly(targetCFrame)
 	SaveState(char)
 	EnableNoClip(char)
 
-	-- STEP 1 : ปรับ Y
+	-- 🔒 LOCK VELOCITY ระหว่างวาร์ป
+	local velConn
+	velConn = RunService.Heartbeat:Connect(function()
+		if hrp and hrp.Parent then
+			hrp.Velocity = Vector3.new(0, 0, 0)
+		end
+	end)
+
+	-- STEP 1 : ปรับ Y ก่อน
 	local startPos = hrp.Position
 	local targetY = targetCFrame.Position.Y
-	local tY = math.abs(startPos.Y - targetY) / SPEED
+	local tY = math.abs(startPos.Y - targetY) / speed
 
-	local t1 = TweenService:Create(
+	local tweenY = TweenService:Create(
 		hrp,
 		TweenInfo.new(tY, Enum.EasingStyle.Linear),
 		{ CFrame = CFrame.new(startPos.X, targetY, startPos.Z) * hrp.CFrame.Rotation }
 	)
-	t1:Play()
-	t1.Completed:Wait()
+	tweenY:Play()
+	tweenY.Completed:Wait()
 
 	-- STEP 2 : บินไปเป้า
 	local distance = (hrp.Position - targetCFrame.Position).Magnitude
-	local tMove = distance / SPEED
+	local tMove = distance / speed
 
-	local t2 = TweenService:Create(
+	local tweenMove = TweenService:Create(
 		hrp,
 		TweenInfo.new(tMove, Enum.EasingStyle.Linear),
 		{ CFrame = targetCFrame }
 	)
-	t2:Play()
-	t2.Completed:Wait()
+	tweenMove:Play()
+	tweenMove.Completed:Wait()
+
+	-- 🔓 ปลด VELOCITY (กลับปกติ)
+	if velConn then
+		velConn:Disconnect()
+		velConn = nil
+	end
 
 	DisableNoClip()
 	RestoreState()
@@ -181,13 +183,16 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 		end
 	end
 
-	-- Fly
 	if input.KeyCode == KEY_FLY_1 then
-		SmoothFly(TARGET_1)
+		SmoothFly(TARGET_1, SPEED_FLY_1)
 	end
 
 	if input.KeyCode == KEY_FLY_2 then
-		SmoothFly(TARGET_2)
+		SmoothFly(TARGET_2, SPEED_FLY_2)
+	end
+
+	if input.KeyCode == KEY_FLY_3 then
+		SmoothFly(TARGET_3, SPEED_FLY_3)
 	end
 end)
 
@@ -206,5 +211,4 @@ end
 if player.Character then
 	onCharacterAdded(player.Character)
 end
-
 player.CharacterAdded:Connect(onCharacterAdded)
