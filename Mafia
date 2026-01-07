@@ -37,6 +37,7 @@ local SPEED_FLY_3 = 10000
 local TARGET_1 = CFrame.new(-385.564789, 21, -807.528015)
 local TARGET_2 = CFrame.new(-367.444214, 20, -373.802002)
 local TARGET_3 = CFrame.new(-57.7530785, 28, -405.38974)
+local TARGET_4 = CFrame.new(-282.676361, 29.668602, -651.730347)
 
 local LOOT_PATH =
     workspace
@@ -295,6 +296,41 @@ Tab:AddButton({
 
             -- 3) ขึ้นไป TARGET_3 จริง
             local finalCFrame = TARGET_3
+
+            -- ทำงานตามลำดับ
+            SmoothFly(downCFrame, 35)
+            SmoothFly(moveXZCFrame, 35)
+            SmoothFly(finalCFrame, 35)
+        end)
+    end
+})
+
+Tab:AddButton({
+    Title = "Fly To Jeweler",
+    Callback = function()
+        task.spawn(function()
+            local char = player.Character or player.CharacterAdded:Wait()
+            local hrp = char:WaitForChild("HumanoidRootPart")
+
+            -- จุดปัจจุบัน
+            local currentPos = hrp.Position
+
+            -- 1) ลงไปที่ Y = 20 (คง X,Z เดิม)
+            local downCFrame = CFrame.new(
+                currentPos.X,
+                20,
+                currentPos.Z
+            )
+
+            -- 2) ไป X,Z ของ TARGET_3 (ยัง Y = 20)
+            local moveXZCFrame = CFrame.new(
+                TARGET_4.Position.X,
+                20,
+                TARGET_4.Position.Z
+            )
+
+            -- 3) ขึ้นไป TARGET_3 จริง
+            local finalCFrame = TARGET_4
 
             -- ทำงานตามลำดับ
             SmoothFly(downCFrame, 35)
