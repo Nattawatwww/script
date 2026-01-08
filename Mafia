@@ -200,6 +200,18 @@ local function ClearESP()
     end
 end
 
+local function RefreshESP()
+    if not ESPEnabled then return end
+
+    ClearESP()
+
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p ~= player and p.Character then
+            applyESP(p)
+        end
+    end
+end
+
 --==================================================
 -- AIMLOCK PLAYER (E)
 --==================================================
@@ -807,6 +819,15 @@ end)
 if player.Character then
     removeNoclipDetector(player.Character)
 end
+
+task.spawn(function()
+    while true do
+        if ESPEnabled then
+            RefreshESP()
+        end
+        task.wait(0.5)
+    end
+end)
 
 updateAll()
 LOOT_PATH.ChildAdded:Connect(updateAll)
