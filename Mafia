@@ -525,7 +525,7 @@ end
 
 local autoCrate = false
 local lastPrompt = 0
-local PROMPT_DELAY = 0.1
+local PROMPT_DELAY = 0.09
 local AFTER_CRATE_DELAY = 3.5
 local WARP_DELAY = 0.03
 
@@ -558,19 +558,15 @@ task.spawn(function()
 								fireproximityprompt(prompt)
 							end)
 						end
-
 						task.wait(WARP_DELAY)
 					end
-
 					task.wait(AFTER_CRATE_DELAY)
 				end
 			end
-
 			DisableLockVelocity()
 			DisableNoClip()
 			RestoreState()
 		end
-
 		task.wait()
 	end
 end)
