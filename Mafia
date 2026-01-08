@@ -203,10 +203,9 @@ end
 --==================================================
 -- AIMLOCK PLAYER (E)
 --==================================================
-VisibleCheck = true
 
-local function IsVisible(targetPart)
-    if not PlayerSettings.VisibleCheck and not NPCSettings.VisibleCheck then
+local function IsVisible(targetPart, useCheck)
+    if not useCheck then
         return true
     end
 
@@ -221,7 +220,6 @@ local function IsVisible(targetPart)
     }
 
     local result = Workspace:Raycast(origin, direction, params)
-
     return result and result.Instance:IsDescendantOf(targetPart.Parent)
 end
 
@@ -230,7 +228,7 @@ local PlayerSettings = {
     Key = Enum.KeyCode.E,
     FOV = 60,
     Smooth = 0.4,
-    AimPart = "Head"
+    AimPart = "Head",
     VisibleCheck = true
 }
 
@@ -259,7 +257,7 @@ local function GetClosestPlayer()
 
                 if onScreen then
                     local d = (center - Vector2.new(pos.X, pos.Y)).Magnitude
-                    if d < dist and IsVisible(part) then
+                    if d < dist and IsVisible(part, PlayerSettings.VisibleCheck) then
                         closest = part
                         dist = d
                     end
@@ -279,7 +277,8 @@ local NPCSettings = {
     Key = Enum.KeyCode.F,
     FOV = 60,
     Smooth = 0.4,
-    AimPart = "Head"
+    AimPart = "Head",
+    VisibleCheck = true
 }
 
 local TargetFolders = {
@@ -314,7 +313,7 @@ local function GetClosestNPC()
 
                     if onScreen then
                         local d = (center - Vector2.new(pos.X, pos.Y)).Magnitude
-                        if d < dist and IsVisible(part) then
+                        if d < dist and IsVisible(part, NPCSettings.VisibleCheck) then
                             closest = part
                             dist = d
                         end
