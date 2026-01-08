@@ -508,8 +508,8 @@ task.spawn(function()
 			end
 
 			DisableLockVelocity()
-			DisableNoClip()      -- ✅ ปิด noclip หลังเก็บหมด
-			RestoreState()       -- ✅ คืนค่า CanCollide / CanTouch / CanQuery
+			DisableNoClip() 
+			RestoreState()   
 		end
 
 		task.wait()
