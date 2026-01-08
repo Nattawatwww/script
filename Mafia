@@ -528,7 +528,7 @@ local autoCrate = false
 local lastPrompt = 0
 local PROMPT_DELAY = 0.1
 local AFTER_CRATE_DELAY = 3.5
-local WARP_DELAY = 0.05
+local WARP_DELAY = 0.03
 
 task.spawn(function()
 	while true do
