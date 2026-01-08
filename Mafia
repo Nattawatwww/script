@@ -493,7 +493,7 @@ task.spawn(function()
 					repeat
 						if not autoCrate then break end
 
-						SmoothFly(part.CFrame * CFrame.new(0, -2, 0), 100000)
+						hrp.CFrame = part.CFrame * CFrame.new(0, -2, 0)
                         task.wait(0.05)
 						pcall(function()
 							fireproximityprompt(prompt)
