@@ -21,23 +21,28 @@ local Tab = Window:AddTab({ Title = "Main", Icon = "box" })
 --==================================================
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local PlaceId = game.PlaceId -- ใช้ PlaceId เดิมของเกม
+local UIS = game:GetService("UserInputService")
+local Camera = Workspace.CurrentCamera
+
+local ESPEnabled = false
+local AimPlayerEnabled = false
+local AimNPCEnabled = false
 
 --==================================================
 -- CONFIG
 --==================================================
 local SPEED_FLY_1 = 35
-local SPEED_FLY_2 = 10000
-local SPEED_FLY_3 = 10000
+local SPEED_FLY_2 = 100000
 
-local TARGET_1 = CFrame.new(-385.564789, 21, -807.528015)
-local TARGET_2 = CFrame.new(-367.444214, 20, -373.802002)
-local TARGET_3 = CFrame.new(-57.7530785, 28, -405.38974)
-local TARGET_4 = CFrame.new(-282.676361, 29.668602, -651.730347)
+local TARGET_1 = CFrame.new(-385.564789, 20, -807.528015)
+local TARGET_2 = CFrame.new(-57.7530785, 28, -405.38974)
+local TARGET_3 = CFrame.new(-282.676361, 29.668602, -651.730347)
 
 local LOOT_PATH =
     workspace
@@ -73,6 +78,269 @@ local function removeNoclipDetector(character)
         end
     end)
 end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "WeaponCrateCounter"
+gui.ResetOnSpawn = false
+gui.Parent = playerGui
+
+local frame = Instance.new("Frame")
+frame.Parent = gui
+frame.Size = UDim2.new(0, 240, 0, 45)
+frame.Position = UDim2.new(0, 15, 1, -60)
+frame.AnchorPoint = Vector2.new(0, 1)
+frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+frame.BackgroundTransparency = 0.15
+frame.BorderSizePixel = 0
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = frame
+
+local text = Instance.new("TextLabel")
+text.Parent = frame
+text.Size = UDim2.new(1, -12, 1, -12)
+text.Position = UDim2.new(0, 6, 0, 6)
+text.BackgroundTransparency = 1
+text.Font = Enum.Font.GothamBold
+text.TextScaled = true
+text.TextColor3 = Color3.fromRGB(255,200,60)
+text.Text = "WeaponCrate : 0"
+
+--// HIGHLIGHT FUNCTION
+local function applyHighlight(crate)
+    if crate:FindFirstChild("CrateHighlight") then return end
+
+    local h = Instance.new("Highlight")
+    h.Name = "CrateHighlight"
+    h.FillColor = Color3.fromRGB(255, 0, 0)
+    h.FillTransparency = 0.5
+    h.OutlineColor = Color3.fromRGB(255, 80, 80)
+    h.OutlineTransparency = 0
+    h.Adornee = crate
+    h.Parent = crate
+end
+
+local function removeHighlight(crate)
+    local h = crate:FindFirstChild("CrateHighlight")
+    if h then
+        h:Destroy()
+    end
+end
+
+--// UPDATE FUNCTION
+local function updateAll()
+    local count = 0
+
+    for _, v in ipairs(LOOT_PATH:GetChildren()) do
+        if v.Name == "WeaponCrate" then
+            count += 1
+            applyHighlight(v)
+        end
+    end
+
+    text.Text = "WeaponCrate : " .. count
+
+    -- ถ้าไม่เหลือกล่อง ล้าง Highlight ทั้งหมด
+    if count == 0 then
+        for _, v in ipairs(LOOT_PATH:GetChildren()) do
+            if v.Name == "WeaponCrate" then
+                removeHighlight(v)
+            end
+        end
+    end
+end
+
+--==================================================
+-- PLAYER ESP
+--==================================================
+local highlightFolder = Workspace:FindFirstChild("HighlightContainer") or Instance.new("Folder")
+highlightFolder.Name = "HighlightContainer"
+highlightFolder.Parent = Workspace
+
+local function getTeamColor(player)
+    if not player.Team or not localPlayer.Team then
+        return Color3.fromRGB(255,0,0)
+    end
+    return (player.Team == localPlayer.Team)
+        and Color3.fromRGB(0,170,255)
+        or Color3.fromRGB(255,0,0)
+end
+
+local function applyESP(p)
+    if not ESPEnabled then return end
+    if p == player then return end -- ❌ ไม่ทำ ESP ให้ตัวเอง
+
+    local function setup(character)
+        if not ESPEnabled then return end
+        if p == player then return end -- กันซ้ำอีกชั้น
+
+        local old = highlightFolder:FindFirstChild(p.Name .. "_ESP")
+        if old then old:Destroy() end
+
+        local h = Instance.new("Highlight")
+        h.Name = p.Name .. "_ESP"
+        h.Adornee = character
+        h.FillColor = getTeamColor(p)
+        h.OutlineColor = Color3.new(1,1,1)
+        h.OutlineTransparency = 0.2
+        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        h.Parent = highlightFolder
+    end
+
+    p.CharacterAdded:Connect(setup)
+    if p.Character then
+        setup(p.Character)
+    end
+end
+
+local function ClearESP()
+    for _,v in ipairs(highlightFolder:GetChildren()) do
+        v:Destroy()
+    end
+end
+
+--==================================================
+-- AIMLOCK PLAYER (E)
+--==================================================
+
+local PlayerLocking = false
+local PlayerSettings = {
+    Key = Enum.KeyCode.E,
+    FOV = 60,
+    Smooth = 0.4,
+    AimPart = "Head"
+}
+
+local PlayerFOV = Drawing.new("Circle")
+PlayerFOV.Visible = false
+PlayerFOV.Thickness = 2
+PlayerFOV.Radius = PlayerSettings.FOV
+PlayerFOV.Color = Color3.new(1,1,1)
+PlayerFOV.Filled = false
+
+local function GetClosestPlayer()
+    local closest, dist = nil, PlayerSettings.FOV
+    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p ~= player and p.Character then
+            local part = p.Character:FindFirstChild(PlayerSettings.AimPart)
+            local hum = p.Character:FindFirstChild("Humanoid")
+            if part and hum and hum.Health > 0 then
+                local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                    local d = (center - Vector2.new(pos.X,pos.Y)).Magnitude
+                    if d < dist then
+                        closest = part
+                        dist = d
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+--==================================================
+-- AIMLOCK NPC / ENEMY (F)
+--==================================================
+local NPCLocking = false
+local NPCSettings = {
+    Key = Enum.KeyCode.F,
+    FOV = 60,
+    Smooth = 0.4,
+    AimPart = "Head"
+}
+
+local TargetFolders = {
+    Workspace:WaitForChild("Enemies"),
+    Workspace.Map.MapModel.JewelryStore:WaitForChild("Npcs"),
+    Workspace.Map.MapModel.CargoShip:WaitForChild("Npcs"),
+    Workspace.Map:WaitForChild("Civilians")
+}
+
+local NPCFOV = Drawing.new("Circle")
+NPCFOV.Visible = false
+NPCFOV.Radius = NPCSettings.FOV
+NPCFOV.Thickness = 2
+NPCFOV.Color = Color3.new(1,1,1)
+
+local function GetClosestNPC()
+    local closest, dist = nil, NPCSettings.FOV
+    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+
+    for _,folder in ipairs(TargetFolders) do
+        for _,m in ipairs(folder:GetChildren()) do
+            if m:IsA("Model") then
+                local hum = m:FindFirstChildOfClass("Humanoid")
+                local part = m:FindFirstChild(NPCSettings.AimPart)
+                if hum and part and hum.Health > 0 then
+                    local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local d = (center - Vector2.new(pos.X,pos.Y)).Magnitude
+                        if d < dist then
+                            closest = part
+                            dist = d
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+UIS.InputBegan:Connect(function(input,gp)
+    if gp then return end
+
+    if AimPlayerEnabled and input.KeyCode == PlayerSettings.Key then
+        PlayerLocking = true
+    end
+
+    if AimNPCEnabled and input.KeyCode == NPCSettings.Key then
+        NPCLocking = true
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.KeyCode == PlayerSettings.Key then
+        PlayerLocking = false
+    end
+    if input.KeyCode == NPCSettings.Key then
+        NPCLocking = false
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+
+    PlayerFOV.Visible = AimPlayerEnabled
+    NPCFOV.Visible = AimNPCEnabled
+    PlayerFOV.Position = center
+    NPCFOV.Position = center
+
+    if AimPlayerEnabled and PlayerLocking then
+        local t = GetClosestPlayer()
+        if t then
+            Camera.CFrame = Camera.CFrame:Lerp(
+                CFrame.lookAt(Camera.CFrame.Position, t.Position),
+                PlayerSettings.Smooth
+            )
+        end
+    end
+
+    if AimNPCEnabled and NPCLocking then
+        local t = GetClosestNPC()
+        if t then
+            Camera.CFrame = Camera.CFrame:Lerp(
+                CFrame.lookAt(Camera.CFrame.Position, t.Position),
+                NPCSettings.Smooth
+            )
+        end
+    end
+end)
+
 
 --==================================================
 -- ADVANCED NOCLIP + STATE
@@ -225,7 +493,7 @@ task.spawn(function()
 					repeat
 						if not autoCrate then break end
 
-						SmoothFly(part.CFrame * CFrame.new(0, -2, 0), 10000)
+						SmoothFly(part.CFrame * CFrame.new(0, -2, 0), 100000)
                         task.wait(0.05)
 						pcall(function()
 							fireproximityprompt(prompt)
@@ -234,7 +502,7 @@ task.spawn(function()
 					until not crate.Parent
 
 					if not crate.Parent then
-						task.wait(3)
+						task.wait(3.5)
 					end
 				end
 			end
@@ -252,26 +520,55 @@ end)
 --==================================================
 -- UI
 --==================================================
-Tab:AddToggle("Noclip", {
-    Title = "Noclip",
+
+Tab:AddToggle("autocrate", {
+    Title = "Auto Warp Collect WeaponCrate",
     Default = false,
     Callback = function(v)
-        noclip = v
-        local char = player.Character
-        if not char then return end
-
-        if v then
-            SaveState(char)
-            EnableNoClip(char)
-        else
-            DisableNoClip()
-            RestoreState()
+        autoCrate = v
+        if not v then
+            DisableLockVelocity()
         end
     end
 })
 
 Tab:AddButton({
     Title = "Fly To Sell",
+    Callback = function()
+        task.spawn(function()
+            local char = player.Character or player.CharacterAdded:Wait()
+            local hrp = char:WaitForChild("HumanoidRootPart")
+
+            -- จุดปัจจุบัน
+            local currentPos = hrp.Position
+
+            -- 1) ลงไปที่ Y = 20 (คง X,Z เดิม)
+            local downCFrame = CFrame.new(
+                currentPos.X,
+                20,
+                currentPos.Z
+            )
+
+            -- 2) ไป X,Z ของ TARGET_2 (ยัง Y = 20)
+            local moveXZCFrame = CFrame.new(
+                TARGET_2.Position.X,
+                20,
+                TARGET_2.Position.Z
+            )
+
+            -- 3) ขึ้นไป TARGET_2 จริง
+            local finalCFrame = TARGET_2
+
+            -- ทำงานตามลำดับ
+            SmoothFly(downCFrame, 35)
+            SmoothFly(moveXZCFrame, 35)
+            SmoothFly(finalCFrame, 35)
+        end)
+    end
+})
+
+Tab:AddButton({
+    Title = "Fly To Jeweler",
     Callback = function()
         task.spawn(function()
             local char = player.Character or player.CharacterAdded:Wait()
@@ -306,41 +603,6 @@ Tab:AddButton({
 })
 
 Tab:AddButton({
-    Title = "Fly To Jeweler",
-    Callback = function()
-        task.spawn(function()
-            local char = player.Character or player.CharacterAdded:Wait()
-            local hrp = char:WaitForChild("HumanoidRootPart")
-
-            -- จุดปัจจุบัน
-            local currentPos = hrp.Position
-
-            -- 1) ลงไปที่ Y = 20 (คง X,Z เดิม)
-            local downCFrame = CFrame.new(
-                currentPos.X,
-                20,
-                currentPos.Z
-            )
-
-            -- 2) ไป X,Z ของ TARGET_3 (ยัง Y = 20)
-            local moveXZCFrame = CFrame.new(
-                TARGET_4.Position.X,
-                20,
-                TARGET_4.Position.Z
-            )
-
-            -- 3) ขึ้นไป TARGET_3 จริง
-            local finalCFrame = TARGET_4
-
-            -- ทำงานตามลำดับ
-            SmoothFly(downCFrame, 35)
-            SmoothFly(moveXZCFrame, 35)
-            SmoothFly(finalCFrame, 35)
-        end)
-    end
-})
-
-Tab:AddButton({
     Title = "Fly To Harbor",
     Callback = function()
         task.spawn(function()
@@ -353,24 +615,6 @@ Tab:AddButton({
     Title = "Sell",
     Callback = function()
         SmoothFly(TARGET_2, SPEED_FLY_2)
-    end
-})
-
-Tab:AddButton({
-    Title = "Sell2",
-    Callback = function()
-        SmoothFly(TARGET_3, SPEED_FLY_3)
-    end
-})
-
-Tab:AddToggle("autocrate", {
-    Title = "Auto Warp Collect WeaponCrate",
-    Default = false,
-    Callback = function(v)
-        autoCrate = v
-        if not v then
-            DisableLockVelocity()
-        end
     end
 })
 
@@ -407,6 +651,62 @@ Tab:AddButton({
     end
 })
 
+local TabP = Window:AddTab({ Title = "Player", Icon = "crosshair" })
+
+TabP:AddToggle("Noclip", {
+    Title = "Noclip",
+    Default = false,
+    Callback = function(v)
+        noclip = v
+        local char = player.Character
+        if not char then return end
+
+        if v then
+            SaveState(char)
+            EnableNoClip(char)
+        else
+            DisableNoClip()
+            RestoreState()
+        end
+    end
+})
+
+TabP:AddToggle("ESP", {
+    Title = "Player ESP",
+    Default = false,
+    Callback = function(v)
+        ESPEnabled = v
+
+        ClearESP() -- 🔥 ล้างก่อนทุกครั้ง
+
+        if v then
+            for _,p in ipairs(Players:GetPlayers()) do
+                if p ~= player then
+                    applyESP(p)
+                end
+            end
+        end
+    end
+})
+
+TabP:AddToggle("AimPlayer", {
+    Title = "Aimlock Player(E)",
+    Default = false,
+    Callback = function(v)
+        AimPlayerEnabled = v
+        PlayerLocking = false
+    end
+})
+
+TabP:AddToggle("AimNPC", {
+    Title = "Aimlock NPC(F)",
+    Default = false,
+    Callback = function(v)
+        AimNPCEnabled = v
+        NPCLocking = false
+    end
+})
+
 --==================================================
 -- CHARACTER SPAWN
 --==================================================
@@ -422,3 +722,7 @@ end)
 if player.Character then
     removeNoclipDetector(player.Character)
 end
+
+updateAll()
+LOOT_PATH.ChildAdded:Connect(updateAll)
+LOOT_PATH.ChildRemoved:Connect(updateAll)
