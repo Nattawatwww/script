@@ -203,6 +203,27 @@ end
 --==================================================
 -- AIMLOCK PLAYER (E)
 --==================================================
+VisibleCheck = true
+
+local function IsVisible(targetPart)
+    if not PlayerSettings.VisibleCheck and not NPCSettings.VisibleCheck then
+        return true
+    end
+
+    local origin = Camera.CFrame.Position
+    local direction = targetPart.Position - origin
+
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+    params.FilterDescendantsInstances = {
+        player.Character,
+        Camera
+    }
+
+    local result = Workspace:Raycast(origin, direction, params)
+
+    return result and result.Instance:IsDescendantOf(targetPart.Parent)
+end
 
 local PlayerLocking = false
 local PlayerSettings = {
@@ -210,6 +231,7 @@ local PlayerSettings = {
     FOV = 60,
     Smooth = 0.4,
     AimPart = "Head"
+    VisibleCheck = true
 }
 
 local PlayerFOV = Drawing.new("Circle")
@@ -221,17 +243,23 @@ PlayerFOV.Filled = false
 
 local function GetClosestPlayer()
     local closest, dist = nil, PlayerSettings.FOV
-    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    local center = Vector2.new(
+        Camera.ViewportSize.X / 2,
+        Camera.ViewportSize.Y / 2
+    )
 
     for _,p in ipairs(Players:GetPlayers()) do
         if p ~= player and p.Character then
             local part = p.Character:FindFirstChild(PlayerSettings.AimPart)
             local hum = p.Character:FindFirstChild("Humanoid")
+
             if part and hum and hum.Health > 0 then
-                local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                local pos, onScreen =
+                    Camera:WorldToViewportPoint(part.Position)
+
                 if onScreen then
-                    local d = (center - Vector2.new(pos.X,pos.Y)).Magnitude
-                    if d < dist then
+                    local d = (center - Vector2.new(pos.X, pos.Y)).Magnitude
+                    if d < dist and IsVisible(part) then
                         closest = part
                         dist = d
                     end
@@ -239,6 +267,7 @@ local function GetClosestPlayer()
             end
         end
     end
+
     return closest
 end
 
@@ -268,18 +297,24 @@ NPCFOV.Color = Color3.new(1,1,1)
 
 local function GetClosestNPC()
     local closest, dist = nil, NPCSettings.FOV
-    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    local center = Vector2.new(
+        Camera.ViewportSize.X / 2,
+        Camera.ViewportSize.Y / 2
+    )
 
     for _,folder in ipairs(TargetFolders) do
         for _,m in ipairs(folder:GetChildren()) do
             if m:IsA("Model") then
                 local hum = m:FindFirstChildOfClass("Humanoid")
                 local part = m:FindFirstChild(NPCSettings.AimPart)
+
                 if hum and part and hum.Health > 0 then
-                    local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    local pos, onScreen =
+                        Camera:WorldToViewportPoint(part.Position)
+
                     if onScreen then
-                        local d = (center - Vector2.new(pos.X,pos.Y)).Magnitude
-                        if d < dist then
+                        local d = (center - Vector2.new(pos.X, pos.Y)).Magnitude
+                        if d < dist and IsVisible(part) then
                             closest = part
                             dist = d
                         end
