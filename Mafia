@@ -1,6 +1,4 @@
---==================================================
--- FLUENT UI
---==================================================
+-- UPD 2.5
 local Fluent = loadstring(game:HttpGet(
     "https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"
 ))()
@@ -212,11 +210,11 @@ end
 
 local function applyESP(p)
     if not ESPEnabled then return end
-    if p == player then return end -- ❌ ไม่ทำ ESP ให้ตัวเอง
+    if p == player then return end
 
     local function setup(character)
         if not ESPEnabled then return end
-        if p == player then return end -- กันซ้ำอีกชั้น
+        if p == player then return end
 
         local old = highlightFolder:FindFirstChild(p.Name .. "_ESP")
         if old then old:Destroy() end
@@ -256,7 +254,7 @@ local function RefreshESP()
 end
 
 --==================================================
--- AIMLOCK PLAYER (E)
+-- AIMLOCK PLAYER
 --==================================================
 
 local function IsVisible(targetPart, useCheck)
@@ -325,7 +323,7 @@ local function GetClosestPlayer()
 end
 
 --==================================================
--- AIMLOCK NPC / ENEMY (F)
+-- AIMLOCK NPC / ENEMY
 --==================================================
 local NPCLocking = false
 local NPCSettings = {
@@ -537,7 +535,7 @@ local function DisableNoClip()
 end
 
 --==================================================
--- SMOOTH FLY (เดิม ไม่แก้)
+-- FLY
 --==================================================
 local function SmoothFly(targetCFrame, speed)
     if flying then return end
@@ -618,15 +616,12 @@ local function FlyAndStay(cf)
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart")
 
-    -- บินไปก่อน
     SmoothFly(cf, 35)
 
-    -- ล็อกสถานะให้ค้าง
     SaveState(char)
     EnableNoClip(char)
     EnableLockVelocity(hrp)
 
-    -- ค้างตำแหน่งตลอด
     stayConn = RunService.Heartbeat:Connect(function()
         if not stayFly then return end
         if hrp and hrp.Parent then
@@ -650,11 +645,20 @@ local function StopStayFly()
     RestoreState()
 end
 
+local function LookUp()
+    local cam = workspace.CurrentCamera
+    local pos = cam.CFrame.Position
+
+    cam.CFrame = CFrame.lookAt(
+        pos,
+        pos + Vector3.new(0, 1, 0)
+    )
+end
+
 
 --==================================================
 -- AUTO WEAPON CRATE (SPAM FLY)
 --==================================================
-
 
 local autoCrate = false
 local lastPrompt = 0
@@ -683,7 +687,7 @@ task.spawn(function()
 
 				if part and prompt and crate.Parent then
 					while autoCrate and crate.Parent do
-						hrp.CFrame = part.CFrame * CFrame.new(0, -2, 0)
+						hrp.CFrame = part.CFrame * CFrame.new(0, -3, 0)
 
 						if os.clock() - lastPrompt >= PROMPT_DELAY then
 							lastPrompt = os.clock()
@@ -704,6 +708,8 @@ task.spawn(function()
 			if autoCrate and GetCrateCount() == 0 then
 				task.wait()
 				teleportToRandomServer()
+                task.wait(0.5)
+                teleportToRandomServer()
 			end
 		end
 		task.wait()
@@ -716,21 +722,20 @@ end)
 
 Tab:AddToggle("autocrate", {
     Title = "Auto Warp Collect WeaponCrate",
-    Default = true,
+    Default = false,
     Callback = function(v)
         autoCrate = v
-        autoCrateReady = false -- ❗ กันวิ่งก่อน
+        autoCrateReady = false
 
         if v then
             task.spawn(function()
-
-                -- 🔍 เช็ก WeaponCrate ก่อน
                 if GetCrateCount() == 0 then
                     teleportToRandomServer()
-                    return -- ❗ สำคัญมาก หยุดทันที
+                    task.wait(0.5)
+                    teleportToRandomServer()
+                    return
                 end
 
-                -- ✈ Fly To Sell (3 ช่วง)
                 local char = player.Character or player.CharacterAdded:Wait()
                 local hrp = char:WaitForChild("HumanoidRootPart")
                 local currentPos = hrp.Position
@@ -739,12 +744,16 @@ Tab:AddToggle("autocrate", {
                 SmoothFly(CFrame.new(TARGET_2.Position.X, 20, TARGET_2.Position.Z), 35)
                 SmoothFly(TARGET_2, 35)
 
-                -- ⏱ รอหลังถึงจุด
+                if GetCrateCount() == 0 then
+                    teleportToRandomServer()
+                    return
+                end
+
                 task.wait(7)
 
-                -- ▶ ค่อยเริ่ม AutoCrate
                 if autoCrate then
                     autoCrateReady = true
+                    LookUp()
                 end
             end)
         else
@@ -753,9 +762,6 @@ Tab:AddToggle("autocrate", {
         end
     end
 })
-
-
-
 
 Tab:AddToggle("Farm 1k", {
     Title = "Farm",
@@ -777,27 +783,22 @@ Tab:AddButton({
             local char = player.Character or player.CharacterAdded:Wait()
             local hrp = char:WaitForChild("HumanoidRootPart")
 
-            -- จุดปัจจุบัน
             local currentPos = hrp.Position
 
-            -- 1) ลงไปที่ Y = 20 (คง X,Z เดิม)
             local downCFrame = CFrame.new(
                 currentPos.X,
                 20,
                 currentPos.Z
             )
 
-            -- 2) ไป X,Z ของ TARGET_2 (ยัง Y = 20)
             local moveXZCFrame = CFrame.new(
                 TARGET_2.Position.X,
                 20,
                 TARGET_2.Position.Z
             )
 
-            -- 3) ขึ้นไป TARGET_2 จริง
             local finalCFrame = TARGET_2
 
-            -- ทำงานตามลำดับ
             SmoothFly(downCFrame, 35)
             SmoothFly(moveXZCFrame, 35)
             SmoothFly(finalCFrame, 35)
@@ -812,27 +813,22 @@ Tab:AddButton({
             local char = player.Character or player.CharacterAdded:Wait()
             local hrp = char:WaitForChild("HumanoidRootPart")
 
-            -- จุดปัจจุบัน
             local currentPos = hrp.Position
 
-            -- 1) ลงไปที่ Y = 20 (คง X,Z เดิม)
             local downCFrame = CFrame.new(
                 currentPos.X,
                 20,
                 currentPos.Z
             )
 
-            -- 2) ไป X,Z ของ TARGET_3 (ยัง Y = 20)
             local moveXZCFrame = CFrame.new(
                 TARGET_3.Position.X,
                 20,
                 TARGET_3.Position.Z
             )
 
-            -- 3) ขึ้นไป TARGET_3 จริง
             local finalCFrame = TARGET_3
 
-            -- ทำงานตามลำดับ
             SmoothFly(downCFrame, 35)
             SmoothFly(moveXZCFrame, 35)
             SmoothFly(finalCFrame, 35)
