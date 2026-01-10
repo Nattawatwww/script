@@ -73,7 +73,7 @@ local LOOT_PATH =
     :WaitForChild("Loot")
 
 --==================================================
--- PROXIMITY PROMPT INSTANT
+-- PROXIMITY PROMPT
 --==================================================
 local function setPrompt(obj)
     if obj:IsA("ProximityPrompt") then
@@ -663,8 +663,8 @@ local AFTER_CRATE_DELAY = 3.5
 local WARP_DELAY = 0.03
 
 task.spawn(function()
-	while true do
-		if autoCrate then
+    while true do
+        if autoCrate and autoCrateReady then
 			local char = player.Character
 			if not char then task.wait() continue end
 
@@ -702,7 +702,7 @@ task.spawn(function()
 			RestoreState()
 
 			if autoCrate and GetCrateCount() == 0 then
-				task.wait(2)
+				task.wait()
 				teleportToRandomServer()
 			end
 		end
@@ -719,41 +719,30 @@ Tab:AddToggle("autocrate", {
     Default = true,
     Callback = function(v)
         autoCrate = v
-        autoCrateReady = false
+        autoCrateReady = false -- ❗ กันวิ่งก่อน
 
         if v then
             task.spawn(function()
+
+                -- 🔍 เช็ก WeaponCrate ก่อน
+                if GetCrateCount() == 0 then
+                    teleportToRandomServer()
+                    return -- ❗ สำคัญมาก หยุดทันที
+                end
+
+                -- ✈ Fly To Sell (3 ช่วง)
                 local char = player.Character or player.CharacterAdded:Wait()
                 local hrp = char:WaitForChild("HumanoidRootPart")
-
-                -- จุดปัจจุบัน
                 local currentPos = hrp.Position
 
-                -- 1) ลงไป Y = 20
-                local downCFrame = CFrame.new(
-                    currentPos.X,
-                    20,
-                    currentPos.Z
-                )
+                SmoothFly(CFrame.new(currentPos.X, 20, currentPos.Z), 35)
+                SmoothFly(CFrame.new(TARGET_2.Position.X, 20, TARGET_2.Position.Z), 35)
+                SmoothFly(TARGET_2, 35)
 
-                -- 2) ไป X,Z ของ TARGET_2 (ยัง Y = 20)
-                local moveXZCFrame = CFrame.new(
-                    TARGET_2.Position.X,
-                    20,
-                    TARGET_2.Position.Z
-                )
+                -- ⏱ รอหลังถึงจุด
+                task.wait(7)
 
-                -- 3) ขึ้นไป TARGET_2 จริง
-                local finalCFrame = TARGET_2
-
-                -- บินแบบ Fly To Sell
-                SmoothFly(downCFrame, 35)
-                SmoothFly(moveXZCFrame, 35)
-                SmoothFly(finalCFrame, 35)
-
-                -- รอ 5 วิ
-                task.wait(5)
-
+                -- ▶ ค่อยเริ่ม AutoCrate
                 if autoCrate then
                     autoCrateReady = true
                 end
@@ -764,6 +753,8 @@ Tab:AddToggle("autocrate", {
         end
     end
 })
+
+
 
 
 Tab:AddToggle("Farm 1k", {
