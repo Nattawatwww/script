@@ -6,13 +6,31 @@ local Fluent = loadstring(game:HttpGet(
 ))()
 
 local Window = Fluent:CreateWindow({
-    Title = "Auto WeaponCrate",
-    SubTitle = "CargoShip",
+    Title = "Random Mafia Shooter",
+    SubTitle = "LuckyZ Hub",
     TabWidth = 160,
     Size = UDim2.fromOffset(520, 420),
     Acrylic = false,
     Theme = "Dark"
 })
+
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+local Button = Instance.new("ImageButton", ScreenGui)
+
+Button.Size = UDim2.new(0, 60, 0, 60)
+Button.Position = UDim2.new(0, 20, 0, 20)
+Button.BackgroundTransparency = 1
+Button.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+Button.ZIndex = 9999
+Button.Active = true
+Button.Draggable = true
+Button.Image = "rbxassetid://136609951292659"
+
+local isVisible = true
+Button.MouseButton1Click:Connect(function()
+	isVisible = not isVisible
+	Window:Minimize()
+end)
 
 local Tab = Window:AddTab({ Title = "Main", Icon = "box" })
 
@@ -24,6 +42,7 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local PlaceId = game.PlaceId
@@ -34,6 +53,7 @@ local Camera = Workspace.CurrentCamera
 local ESPEnabled = false
 local AimPlayerEnabled = false
 local AimNPCEnabled = false
+local AntiAFK = true
 
 --==================================================
 -- CONFIG
@@ -43,6 +63,7 @@ local SPEED_FLY_1 = 35
 local TARGET_1 = CFrame.new(-385.564789, 20, -807.528015)
 local TARGET_2 = CFrame.new(-57.7530785, 28, -405.38974)
 local TARGET_3 = CFrame.new(-282.676361, 29.668602, -651.730347)
+local TARGET_4 = CFrame.new(-343.397614, 20, -357.351868)
 
 local LOOT_PATH =
     workspace
@@ -78,6 +99,19 @@ local function removeNoclipDetector(character)
         end
     end)
 end
+
+task.spawn(function()
+    while true do
+        if AntiAFK then
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new(0,0))
+            end)
+        end
+        task.wait(600)
+    end
+end)
+
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "WeaponCrateCounter"
@@ -128,7 +162,6 @@ local function removeHighlight(crate)
     end
 end
 
---// UPDATE FUNCTION
 local function updateAll()
     local count = 0
 
@@ -141,7 +174,6 @@ local function updateAll()
 
     text.Text = "WeaponCrate : " .. count
 
-    -- ถ้าไม่เหลือกล่อง ล้าง Highlight ทั้งหมด
     if count == 0 then
         for _, v in ipairs(LOOT_PATH:GetChildren()) do
             if v.Name == "WeaponCrate" then
@@ -150,6 +182,17 @@ local function updateAll()
         end
     end
 end
+
+local function GetCrateCount()
+    local c = 0
+    for _, v in ipairs(LOOT_PATH:GetChildren()) do
+        if v.Name == "WeaponCrate" then
+            c += 1
+        end
+    end
+    return c
+end
+
 
 --==================================================
 -- PLAYER ESP
@@ -564,6 +607,50 @@ local function DisableLockVelocity()
         lockVelConn = nil
     end
 end
+
+local stayFly = false
+local stayConn
+
+local function FlyAndStay(cf)
+    if stayFly then return end
+    stayFly = true
+
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+
+    -- บินไปก่อน
+    SmoothFly(cf, 35)
+
+    -- ล็อกสถานะให้ค้าง
+    SaveState(char)
+    EnableNoClip(char)
+    EnableLockVelocity(hrp)
+
+    -- ค้างตำแหน่งตลอด
+    stayConn = RunService.Heartbeat:Connect(function()
+        if not stayFly then return end
+        if hrp and hrp.Parent then
+            hrp.CFrame = cf
+            hrp.Velocity = Vector3.zero
+            hrp.AssemblyLinearVelocity = Vector3.zero
+        end
+    end)
+end
+
+local function StopStayFly()
+    stayFly = false
+
+    if stayConn then
+        stayConn:Disconnect()
+        stayConn = nil
+    end
+
+    DisableLockVelocity()
+    DisableNoClip()
+    RestoreState()
+end
+
+
 --==================================================
 -- AUTO WEAPON CRATE (SPAM FLY)
 --==================================================
@@ -609,14 +696,19 @@ task.spawn(function()
 					task.wait(AFTER_CRATE_DELAY)
 				end
 			end
+
 			DisableLockVelocity()
 			DisableNoClip()
 			RestoreState()
+
+			if autoCrate and GetCrateCount() == 0 then
+				task.wait(2)
+				teleportToRandomServer()
+			end
 		end
 		task.wait()
 	end
 end)
-
 
 --==================================================
 -- UI
@@ -624,14 +716,68 @@ end)
 
 Tab:AddToggle("autocrate", {
     Title = "Auto Warp Collect WeaponCrate",
-    Default = false,
+    Default = true,
     Callback = function(v)
         autoCrate = v
-        if not v then
+        autoCrateReady = false
+
+        if v then
+            task.spawn(function()
+                local char = player.Character or player.CharacterAdded:Wait()
+                local hrp = char:WaitForChild("HumanoidRootPart")
+
+                -- จุดปัจจุบัน
+                local currentPos = hrp.Position
+
+                -- 1) ลงไป Y = 20
+                local downCFrame = CFrame.new(
+                    currentPos.X,
+                    20,
+                    currentPos.Z
+                )
+
+                -- 2) ไป X,Z ของ TARGET_2 (ยัง Y = 20)
+                local moveXZCFrame = CFrame.new(
+                    TARGET_2.Position.X,
+                    20,
+                    TARGET_2.Position.Z
+                )
+
+                -- 3) ขึ้นไป TARGET_2 จริง
+                local finalCFrame = TARGET_2
+
+                -- บินแบบ Fly To Sell
+                SmoothFly(downCFrame, 35)
+                SmoothFly(moveXZCFrame, 35)
+                SmoothFly(finalCFrame, 35)
+
+                -- รอ 5 วิ
+                task.wait(5)
+
+                if autoCrate then
+                    autoCrateReady = true
+                end
+            end)
+        else
+            autoCrateReady = false
             DisableLockVelocity()
         end
     end
 })
+
+
+Tab:AddToggle("Farm 1k", {
+    Title = "Farm",
+    Default = false,
+    Callback = function(v)
+        if v then
+            FlyAndStay(TARGET_4)
+        else
+            StopStayFly()
+        end
+    end
+})
+
 
 Tab:AddButton({
     Title = "Fly To Sell",
