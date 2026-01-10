@@ -56,7 +56,7 @@ local AntiAFK = true
 --==================================================
 -- CONFIG
 --==================================================
-local SPEED_FLY_1 = 34
+local SPEED_FLY_1 = 35
 
 local TARGET_1 = CFrame.new(-385.564789, 20, -807.528015)
 local TARGET_2 = CFrame.new(-57.7530785, 28, -405.38974)
