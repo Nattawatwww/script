@@ -1,10 +1,10 @@
--- UPD 1.1.2
+-- UPD 1.0
 local Fluent = loadstring(game:HttpGet(
     "https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"
 ))()
 
 local Window = Fluent:CreateWindow({
-    Title = "Random Mafia Shooter [1.1.2]",
+    Title = "Random Mafia Shooter [1.0]",
     SubTitle = "LuckyZ Hub",
     TabWidth = 160,
     Size = UDim2.fromOffset(520, 420),
