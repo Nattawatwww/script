@@ -736,7 +736,7 @@ end)
 
 Tab:AddToggle("Auto Crate", {
     Title = "Auto Warp Collect WeaponCrate",
-    Default = false,
+    Default = true,
     Callback = function(v)
         autoCrate = v
 		autoTeleport = v
