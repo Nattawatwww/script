@@ -710,8 +710,6 @@ task.spawn(function()
 			if autoCrate and GetCrateCount() == 0 then
 				task.wait()
 				teleportToRandomServer()
-                task.wait(0.5)
-                teleportToRandomServer()
 			end
 		end
 		task.wait()
@@ -732,10 +730,6 @@ Tab:AddToggle("Auto Crate", {
         if v then
             task.spawn(function()
                 if GetCrateCount() == 0 then
-                    teleportToRandomServer()
-                    task.wait(0.5)
-                    teleportToRandomServer()
-                    task.wait(1)
                     teleportToRandomServer()
                     return
                 end
