@@ -1,4 +1,4 @@
--- UPD 3
+-- UPD 3.0
 local Fluent = loadstring(game:HttpGet(
     "https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"
 ))()
