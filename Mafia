@@ -692,7 +692,8 @@ local function AutoCrateLoop()
             teleportToRandomServer()
             return
         end
-
+		
+		wait(9)
         autoCrateReady = true
         for _, c in next, getconnections(pbtn.MouseButton1Click) do
             c:Fire()
@@ -743,14 +744,13 @@ end
 
 Tab:AddToggle("Auto Crate", {
     Title = "Auto Farm WeaponCrate",
-    Default = false,
+    Default = true,
     Callback = function(v)
         autoCrate = v
         autoTeleport = v
         autoCrateReady = false
 
         if v then
-			wait(9)
             task.spawn(AutoCrateLoop)
         else
             autoCrateReady = false
