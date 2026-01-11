@@ -4,7 +4,7 @@ local Fluent = loadstring(game:HttpGet(
 ))()
 
 local Window = Fluent:CreateWindow({
-    Title = "Random Mafia Shooter [1.1.1]",
+    Title = "Random Mafia Shooter [1.1.2]",
     SubTitle = "LuckyZ Hub",
     TabWidth = 160,
     Size = UDim2.fromOffset(520, 420),
