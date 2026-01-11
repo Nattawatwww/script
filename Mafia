@@ -653,7 +653,7 @@ local function CheckAndTeleport()
                 end
             end
         end
-        task.wait(3)
+        task.wait(5)
     end
 end
 
@@ -668,7 +668,7 @@ local function AutoCrateLoop()
 
     while autoCrate do
         if GetCrateCount() == 0 then
-			task.wait()
+			task.wait(3)
             teleportToRandomServer()
             return
         end
@@ -720,7 +720,7 @@ end
 
 Tab:AddToggle("Auto Crate", {
     Title = "Auto Farm WeaponCrate",
-    Default = false,
+    Default = true,
     Callback = function(v)
         autoCrate = v
         autoTeleport = v
@@ -738,7 +738,7 @@ Tab:AddToggle("Auto Crate", {
 
 Tab:AddToggle("Farm 1k", {
     Title = "Farm",
-    Default = false,
+    Default = true,
     Callback = function(v)
         if v then
             FlyAndStay(TARGET_4)
