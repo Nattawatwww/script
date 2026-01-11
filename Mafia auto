@@ -671,6 +671,26 @@ local function LookUp()
     )
 end
 
+local function BindAutoCrateDeathTeleport(character)
+    local hum = character:WaitForChild("Humanoid", 5)
+    if not hum then return end
+
+    hum.Died:Connect(function()
+        if autoCrate then
+            autoCrate = false
+            waitingTeleport = false
+
+            Fluent:Notify({
+                Title = "Auto Crate",
+                Content = "คุณตายแล้ว กำลังย้ายเซิร์ฟเวอร์...",
+                Duration = 4
+            })
+
+            TeleportUntilSuccess()
+        end
+    end)
+end
+
 local function AutoCrateLoop()
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart")
@@ -936,6 +956,7 @@ player.CharacterAdded:Connect(function(char)
     DisableLockVelocity()
     originalState = {}
     removeNoclipDetector(char)
+	BindAutoCrateDeathTeleport(char)
 end)
 
 if player.Character then
