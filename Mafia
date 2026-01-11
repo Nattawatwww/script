@@ -428,33 +428,23 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-local function findServer()
+local function findRandomServer()
 	local url = "https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
+
 	local success, result = pcall(function()
 		return game:HttpGet(url)
 	end)
-	if success then
-		local data = HttpService:JSONDecode(result)
-		for _, server in ipairs(data.data) do
-			if server.id ~= currentJobId then
-				return server.id
-			end
-		end
-	end
-	return nil
-end
 
-local function FindRandomServer()
-	local url = "https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Asc&limit=100"
-	local success, result = pcall(function() return game:HttpGet(url) end)
 	if success then
 		local data = HttpService:JSONDecode(result)
 		local servers = {}
+
 		for _, server in ipairs(data.data) do
-			if server.playing < server.maxPlayers and server.id ~= game.JobId then
+			if server.id ~= currentJobId then
 				table.insert(servers, server.id)
 			end
 		end
+
 		if #servers > 0 then
 			return servers[math.random(1, #servers)]
 		end
@@ -462,18 +452,12 @@ local function FindRandomServer()
 	return nil
 end
 
-
-local function teleportToLowestServer()
-	local jobId = findServer()
-	if jobId then
-		TeleportService:TeleportToPlaceInstance(PlaceId, jobId, Players.LocalPlayer)
-	end
-end
-
 local function teleportToRandomServer()
 	local jobId = findRandomServer()
 	if jobId then
 		TeleportService:TeleportToPlaceInstance(PlaceId, jobId, Players.LocalPlayer)
+	else
+		warn("ไม่พบเซิร์ฟเวอร์สุ่ม")
 	end
 end
 
@@ -862,14 +846,6 @@ Tab:AddButton({
     Description = "ย้ายไปเซิร์ฟเวอร์สุ่ม",
     Callback = function()
         teleportToRandomServer()
-    end
-})
-
-Tab:AddButton({
-    Title = "Teleport To Lowest Server",
-    Description = "ย้ายไปเซิร์ฟเวอร์ที่คนน้อยที่สุด",
-    Callback = function()
-        teleportToLowestServer()
     end
 })
 
