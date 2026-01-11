@@ -735,7 +735,7 @@ Tab:AddToggle("Auto Crate", {
                     teleportToRandomServer()
                     task.wait(0.5)
                     teleportToRandomServer()
-					task.wait(1)
+                    task.wait(1)
                     teleportToRandomServer()
                     return
                 end
