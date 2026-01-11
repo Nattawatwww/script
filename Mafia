@@ -724,7 +724,7 @@ end)
 
 Tab:AddToggle("Auto Crate", {
     Title = "Auto Warp Collect WeaponCrate",
-    Default = false,
+    Default = false
     Callback = function(v)
         autoCrate = v
         autoCrateReady = false
@@ -734,6 +734,8 @@ Tab:AddToggle("Auto Crate", {
                 if GetCrateCount() == 0 then
                     teleportToRandomServer()
                     task.wait(0.5)
+                    teleportToRandomServer()
+                    task.wait(1)
                     teleportToRandomServer()
                     return
                 end
@@ -911,7 +913,7 @@ TabP:AddToggle("ESP", {
     Callback = function(v)
         ESPEnabled = v
 
-        ClearESP() -- 🔥 ล้างก่อนทุกครั้ง
+        ClearESP()
 
         if v then
             for _,p in ipairs(Players:GetPlayers()) do
