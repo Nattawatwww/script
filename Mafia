@@ -656,6 +656,8 @@ local function LookUp()
 end
 
 
+local pbtn = playerGui.Main.MainMenu.Menu.Buttons.PlayBtn
+
 --==================================================
 -- AUTO WEAPON CRATE (SPAM FLY)
 --==================================================
@@ -720,9 +722,9 @@ end)
 -- UI
 --==================================================
 
-Tab:AddToggle("autocrate", {
+Tab:AddToggle("Auto Crate", {
     Title = "Auto Warp Collect WeaponCrate",
-    Default = false,
+    Default = true,
     Callback = function(v)
         autoCrate = v
         autoCrateReady = false
@@ -735,7 +737,9 @@ Tab:AddToggle("autocrate", {
                     teleportToRandomServer()
                     return
                 end
-
+				task.wait(2)
+				for _,c in next, getconnections(pbtn.MouseButton1Click) do c:Fire() end
+			    task.wait(1)
                 local char = player.Character or player.CharacterAdded:Wait()
                 local hrp = char:WaitForChild("HumanoidRootPart")
                 local currentPos = hrp.Position
