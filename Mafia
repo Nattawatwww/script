@@ -737,7 +737,7 @@ Tab:AddToggle("Auto Crate", {
                     teleportToRandomServer()
                     return
                 end
-				task.wait(2)
+				task.wait(7)
 				for _,c in next, getconnections(pbtn.MouseButton1Click) do c:Fire() end
 			    task.wait(1)
                 local char = player.Character or player.CharacterAdded:Wait()
