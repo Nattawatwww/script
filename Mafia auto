@@ -664,7 +664,7 @@ local function CheckAndTeleport()
                 teleportToRandomServer()
             end
         end
-        task.wait(2)
+        task.wait(3)
     end
 end
 
