@@ -655,11 +655,25 @@ local function LookUp()
     )
 end
 
+local autoTeleport = false
+
+local function CheckAndTeleport()
+    while true do
+        if autoTeleport then
+            if GetCrateCount() == 0 then
+                teleportToRandomServer()
+            end
+        end
+        task.wait(2)
+    end
+end
+
+task.spawn(CheckAndTeleport)
 
 local pbtn = playerGui.Main.MainMenu.Menu.Buttons.PlayBtn
 
 --==================================================
--- AUTO WEAPON CRATE (SPAM FLY)
+-- AUTO WEAPON CRATE
 --==================================================
 
 local autoCrate = false
@@ -717,14 +731,15 @@ task.spawn(function()
 end)
 
 --==================================================
--- UI
+-- Tap
 --==================================================
 
 Tab:AddToggle("Auto Crate", {
     Title = "Auto Warp Collect WeaponCrate",
-    Default = false,
+    Default = true,
     Callback = function(v)
         autoCrate = v
+		autoTeleport = v
         autoCrateReady = false
 
         if v then
@@ -733,7 +748,7 @@ Tab:AddToggle("Auto Crate", {
                     teleportToRandomServer()
                     return
                 end
-				task.wait(7)
+				task.wait(9)
 				for _,c in next, getconnections(pbtn.MouseButton1Click) do c:Fire() end
 			    task.wait(1)
                 local char = player.Character or player.CharacterAdded:Wait()
@@ -743,11 +758,6 @@ Tab:AddToggle("Auto Crate", {
                 SmoothFly(CFrame.new(currentPos.X, 20, currentPos.Z), 35)
                 SmoothFly(CFrame.new(TARGET_2.Position.X, 20, TARGET_2.Position.Z), 35)
                 SmoothFly(TARGET_2, 35)
-
-                if GetCrateCount() == 0 then
-                    teleportToRandomServer()
-                    return
-                end
 
                 task.wait(7)
 
@@ -907,7 +917,7 @@ TabP:AddToggle("ESP", {
     Callback = function(v)
         ESPEnabled = v
 
-        ClearESP() -- 🔥 ล้างก่อนทุกครั้ง
+        ClearESP()
 
         if v then
             for _,p in ipairs(Players:GetPlayers()) do
