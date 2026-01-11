@@ -59,7 +59,7 @@ local AntiAFK = true
 local SPEED_FLY_1 = 35
 
 local TARGET_1 = CFrame.new(-385.564789, 20, -807.528015)
-local TARGET_2 = CFrame.new(-57.7530785, 28, -405.38974)
+local TARGET_2 = CFrame.new(-57.7530785, 29, -405.38974)
 local TARGET_3 = CFrame.new(-282.676361, 29.668602, -651.730347)
 local TARGET_4 = CFrame.new(-343.397614, 20, -357.351868)
 
@@ -660,75 +660,82 @@ local autoTeleport = false
 local function CheckAndTeleport()
     while true do
         if autoTeleport then
-            if GetCrateCount() == 0 then
-                teleportToRandomServer()
+            local char = player.Character
+            if char then
+                local weaponCrateInChar = char:FindFirstChild("PlayerWeaponCrate")
+                if weaponCrateInChar then
+                    repeat
+                        task.wait(0.5)
+                        weaponCrateInChar = char:FindFirstChild("PlayerWeaponCrate")
+                    until not weaponCrateInChar
+                    task.wait(3)
+                elseif GetCrateCount() == 0 then
+                    teleportToRandomServer()
+                end
             end
         end
-        task.wait(3)
+        task.wait(1)
     end
 end
+
 
 task.spawn(CheckAndTeleport)
 
 local pbtn = playerGui.Main.MainMenu.Menu.Buttons.PlayBtn
 
---==================================================
--- AUTO WEAPON CRATE
---==================================================
+local function AutoCrateLoop()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
 
-local autoCrate = false
-local lastPrompt = 0
-local PROMPT_DELAY = 0.09
-local AFTER_CRATE_DELAY = 3.5
-local WARP_DELAY = 0.03
+    while autoCrate do
+        if GetCrateCount() == 0 then
+            teleportToRandomServer()
+            return
+        end
 
-task.spawn(function()
-    while true do
-        if autoCrate and autoCrateReady then
-			local char = player.Character
-			if not char then task.wait() continue end
+        autoCrateReady = true
+        for _, c in next, getconnections(pbtn.MouseButton1Click) do
+            c:Fire()
+        end
 
-			local hrp = char:FindFirstChild("HumanoidRootPart")
-			if not hrp then task.wait() continue end
+        LookUp()
 
-			EnableLockVelocity(hrp)
-			EnableNoClip(char)
+        local crates = LOOT_PATH:GetChildren()
+        for _, crate in ipairs(crates) do
+            if not autoCrate then break end
+            if crate.Name ~= "WeaponCrate" then continue end
 
-			for _, crate in ipairs(LOOT_PATH:GetChildren()) do
-				if not autoCrate then break end
-				if crate.Name ~= "WeaponCrate" then continue end
+            local part = crate:FindFirstChildWhichIsA("BasePart")
+            local prompt = crate:FindFirstChildWhichIsA("ProximityPrompt", true)
 
-				local part = crate:FindFirstChildWhichIsA("BasePart")
-				local prompt = crate:FindFirstChildWhichIsA("ProximityPrompt", true)
+            if part and prompt and crate.Parent then
+                EnableLockVelocity(hrp)
+                EnableNoClip(char)
 
-				if part and prompt and crate.Parent then
-					while autoCrate and crate.Parent do
-						hrp.CFrame = part.CFrame * CFrame.new(0, -3, 0)
+                while autoCrate and crate.Parent do
+                    hrp.CFrame = part.CFrame * CFrame.new(0, -5, 0)
+                    task.wait(0.09)
+                    pcall(function() fireproximityprompt(prompt) end)
+                    task.wait(0.03)
 
-						if os.clock() - lastPrompt >= PROMPT_DELAY then
-							lastPrompt = os.clock()
-							pcall(function()
-								fireproximityprompt(prompt)
-							end)
-						end
-						task.wait(WARP_DELAY)
-					end
-					task.wait(AFTER_CRATE_DELAY)
-				end
-			end
+                    local weaponCrateInChar = char:FindFirstChild("PlayerWeaponCrate")
+                    if weaponCrateInChar then
+                        repeat
+                            hrp.CFrame = TARGET_2
+                            task.wait(0.5)
+                        until not char:FindFirstChild("PlayerWeaponCrate")
+                        break
+                    end
+                end
 
-			DisableLockVelocity()
-			DisableNoClip()
-			RestoreState()
+                DisableLockVelocity()
+                DisableNoClip()
+                RestoreState()
+            end
+        end
+    end
+end
 
-			if autoCrate and GetCrateCount() == 0 then
-				task.wait()
-				teleportToRandomServer()
-			end
-		end
-		task.wait()
-	end
-end)
 
 --==================================================
 -- Tap
@@ -739,39 +746,19 @@ Tab:AddToggle("Auto Crate", {
     Default = true,
     Callback = function(v)
         autoCrate = v
-		autoTeleport = v
+        autoTeleport = v
         autoCrateReady = false
 
         if v then
-            task.spawn(function()
-                if GetCrateCount() == 0 then
-                    teleportToRandomServer()
-                    return
-                end
-				task.wait(9)
-				for _,c in next, getconnections(pbtn.MouseButton1Click) do c:Fire() end
-			    task.wait(1)
-                local char = player.Character or player.CharacterAdded:Wait()
-                local hrp = char:WaitForChild("HumanoidRootPart")
-                local currentPos = hrp.Position
-
-                SmoothFly(CFrame.new(currentPos.X, 20, currentPos.Z), 35)
-                SmoothFly(CFrame.new(TARGET_2.Position.X, 20, TARGET_2.Position.Z), 35)
-                SmoothFly(TARGET_2, 35)
-
-                task.wait(7)
-
-                if autoCrate then
-                    autoCrateReady = true
-                    LookUp()
-                end
-            end)
+			wait(9)
+            task.spawn(AutoCrateLoop)
         else
             autoCrateReady = false
             DisableLockVelocity()
         end
     end
 })
+
 
 Tab:AddToggle("Farm 1k", {
     Title = "Farm",
