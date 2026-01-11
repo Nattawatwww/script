@@ -674,9 +674,6 @@ local function AutoCrateLoop()
         end
 
         autoCrateReady = true
-        for _, c in next, getconnections(pbtn.MouseButton1Click) do
-            c:Fire()
-        end
 
         LookUp()
 
