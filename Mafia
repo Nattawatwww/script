@@ -674,7 +674,7 @@ local function CheckAndTeleport()
                 end
             end
         end
-        task.wait(1)
+        task.wait(2)
     end
 end
 
@@ -689,10 +689,11 @@ local function AutoCrateLoop()
 
     while autoCrate do
         if GetCrateCount() == 0 then
+			task.wait(2)
             teleportToRandomServer()
             return
         end
-		
+
 		wait(9)
         autoCrateReady = true
         for _, c in next, getconnections(pbtn.MouseButton1Click) do
