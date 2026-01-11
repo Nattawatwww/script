@@ -445,27 +445,29 @@ local function findServer()
 end
 
 local function findRandomServer()
-	local url = "https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
+    local url = "https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
 
-	local success, result = pcall(function()
-		return game:HttpGet(url)
-	end)
+    local success, result = pcall(function()
+        return game:HttpGet(url)
+    end)
 
-	if success then
-		local data = HttpService:JSONDecode(result)
-		local servers = {}
+    if success then
+        local data = HttpService:JSONDecode(result)
+        local servers = {}
 
-		for _, server in ipairs(data.data) do
-			if server.id ~= currentJobId then
-				table.insert(servers, server.id)
-			end
-		end
+        for _, server in ipairs(data.data) do
+            if server.id ~= currentJobId then
+                if server.playing < server.maxPlayers then
+                    table.insert(servers, server.id)
+                end
+            end
+        end
 
-		if #servers > 0 then
-			return servers[math.random(1, #servers)] -- เลือกเซิร์ฟแบบสุ่ม
-		end
-	end
-	return nil
+        if #servers > 0 then
+            return servers[math.random(1, #servers)]
+        end
+    end
+    return nil
 end
 
 local function teleportToLowestServer()
@@ -674,7 +676,7 @@ local function CheckAndTeleport()
                 end
             end
         end
-        task.wait(2)
+        task.wait(3)
     end
 end
 
@@ -689,12 +691,11 @@ local function AutoCrateLoop()
 
     while autoCrate do
         if GetCrateCount() == 0 then
-			task.wait(2)
+			task.wait()
             teleportToRandomServer()
             return
         end
 
-		wait(9)
         autoCrateReady = true
         for _, c in next, getconnections(pbtn.MouseButton1Click) do
             c:Fire()
