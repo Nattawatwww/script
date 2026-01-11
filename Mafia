@@ -739,7 +739,7 @@ end
 
 Tab:AddToggle("Auto Crate", {
     Title = "Auto Farm WeaponCrate",
-    Default = true,
+    Default = false,
     Callback = function(v)
         autoCrate = v
         autoTeleport = v
