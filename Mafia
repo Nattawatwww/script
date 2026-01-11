@@ -47,11 +47,16 @@ local PlaceId = game.PlaceId
 local currentJobId = game.JobId
 local UIS = game:GetService("UserInputService")
 local Camera = Workspace.CurrentCamera
+local pbtn = playerGui.Main.MainMenu.Menu.Buttons.PlayBtn
 
 local ESPEnabled = false
 local AimPlayerEnabled = false
 local AimNPCEnabled = false
 local AntiAFK = true
+local autoCrate = false
+local autoCrateReady = false
+local waitingTeleport = false
+local teleporting = false
 
 --==================================================
 -- CONFIG
@@ -428,37 +433,69 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-local function findRandomServer()
-	local url = "https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
+local function teleportToRandomServer()
+    local url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
+    
+    local function getServers(cursor)
+        local success, result = pcall(function()
+            return game:HttpGet(url .. (cursor and "&cursor=" .. cursor or ""))
+        end)
+        
+        if success then
+            local data = HttpService:JSONDecode(result)
+            if data and data.data then
+                return data
+            end
+        end
+        return nil
+    end
 
-	local success, result = pcall(function()
-		return game:HttpGet(url)
-	end)
+    task.spawn(function()
+        local serverData = getServers()
+        if not serverData then return end
+        
+        local possibleServers = {}
+        
+        for _, server in ipairs(serverData.data) do
+            if tostring(server.id) ~= tostring(currentJobId) and server.playing < server.maxPlayers then
+                table.insert(possibleServers, server.id)
+            end
+        end
 
-	if success then
-		local data = HttpService:JSONDecode(result)
-		local servers = {}
-
-		for _, server in ipairs(data.data) do
-			if server.id ~= currentJobId then
-				table.insert(servers, server.id)
-			end
-		end
-
-		if #servers > 0 then
-			return servers[math.random(1, #servers)]
-		end
-	end
-	return nil
+        if #possibleServers > 0 then
+            local targetId = possibleServers[math.random(1, #possibleServers)]
+            TeleportService:TeleportToPlaceInstance(PlaceId, targetId, player)
+        else
+            Fluent:Notify({
+                Title = "LuckyZ Hub",
+                Content = "ไม่พบเซิร์ฟเวอร์ที่เหมาะสม กำลังลองใหม่...",
+                Duration = 3
+            })
+            task.wait(1)
+            teleportToRandomServer()
+        end
+    end)
 end
 
-local function teleportToRandomServer()
-	local jobId = findRandomServer()
-	if jobId then
-		TeleportService:TeleportToPlaceInstance(PlaceId, jobId, Players.LocalPlayer)
-	else
-		warn("ไม่พบเซิร์ฟเวอร์สุ่ม")
-	end
+local function TeleportUntilSuccess()
+    if teleporting then return end
+    teleporting = true
+
+    -- แจ้งเตือนผู้ใช้
+    Fluent:Notify({
+        Title = "Server Hopping",
+        Content = "กำลังย้ายเซิร์ฟเวอร์เพื่อฟาร์มต่อ...",
+        Duration = 5
+    })
+
+    task.spawn(function()
+        while teleporting do
+            pcall(function()
+                teleportToRandomServer()
+            end)
+            task.wait(3) -- รอ 3 วินาทีก่อนลองใหม่เพื่อป้องกัน Rate Limit
+        end
+    end)
 end
 
 --==================================================
@@ -634,51 +671,41 @@ local function LookUp()
     )
 end
 
-local autoTeleport = false
-
-local function CheckAndTeleport()
-    while true do
-        if autoTeleport then
-            local char = player.Character
-            if char then
-                local weaponCrateInChar = char:FindFirstChild("PlayerWeaponCrate")
-                if weaponCrateInChar then
-                    repeat
-                        task.wait(0.5)
-                        weaponCrateInChar = char:FindFirstChild("PlayerWeaponCrate")
-                    until not weaponCrateInChar
-                    task.wait(3)
-                elseif GetCrateCount() == 0 then
-                    teleportToRandomServer()
-                end
-            end
-        end
-        task.wait(5)
-    end
-end
-
-
-task.spawn(CheckAndTeleport)
-
-local pbtn = playerGui.Main.MainMenu.Menu.Buttons.PlayBtn
-
 local function AutoCrateLoop()
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart")
 
     while autoCrate do
-        if GetCrateCount() == 0 then
-			task.wait(3)
-            teleportToRandomServer()
+        autoCrateReady = true
+
+        local weaponCrateInChar = char:FindFirstChild("PlayerWeaponCrate")
+
+        if GetCrateCount() == 0 and not weaponCrateInChar then
+            TeleportUntilSuccess()
             return
         end
 
-        autoCrateReady = true
+        if GetCrateCount() == 0 and weaponCrateInChar and not waitingTeleport then
+            waitingTeleport = true
 
-        LookUp()
+            task.spawn(function()
+                while autoCrate and char:FindFirstChild("PlayerWeaponCrate") do
+                    task.wait(0.2)
+                end
 
-        local crates = LOOT_PATH:GetChildren()
-        for _, crate in ipairs(crates) do
+                if autoCrate then
+                    task.wait()
+                end
+
+                if autoCrate and GetCrateCount() == 0 then
+                    TeleportUntilSuccess()
+                end
+
+                waitingTeleport = false
+            end)
+        end
+
+        for _, crate in ipairs(LOOT_PATH:GetChildren()) do
             if not autoCrate then break end
             if crate.Name ~= "WeaponCrate" then continue end
 
@@ -692,11 +719,11 @@ local function AutoCrateLoop()
                 while autoCrate and crate.Parent do
                     hrp.CFrame = part.CFrame * CFrame.new(0, -5, 0)
                     task.wait(0.09)
-                    pcall(function() fireproximityprompt(prompt) end)
+                    pcall(function()
+                        fireproximityprompt(prompt)
+                    end)
                     task.wait(0.03)
-
-                    local weaponCrateInChar = char:FindFirstChild("PlayerWeaponCrate")
-                    if weaponCrateInChar then
+                    if char:FindFirstChild("PlayerWeaponCrate") then
                         repeat
                             hrp.CFrame = TARGET_2
                             task.wait(0.5)
@@ -720,25 +747,22 @@ end
 
 Tab:AddToggle("Auto Crate", {
     Title = "Auto Farm WeaponCrate",
-    Default = true,
+    Default = false,
     Callback = function(v)
         autoCrate = v
-        autoTeleport = v
-        autoCrateReady = false
+        waitingTeleport = false
 
         if v then
             task.spawn(AutoCrateLoop)
         else
-            autoCrateReady = false
             DisableLockVelocity()
         end
     end
 })
 
-
 Tab:AddToggle("Farm 1k", {
     Title = "Farm",
-    Default = true,
+    Default = false,
     Callback = function(v)
         if v then
             FlyAndStay(TARGET_4)
