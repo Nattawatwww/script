@@ -438,76 +438,54 @@ local RETRY_DELAY = 3
 local retryCount = 0
 
 local function teleportToRandomServer()
-    local url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
+    local oldJobId = game.JobId
 
+    local url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
     local success, result = pcall(function()
         return game:HttpGet(url)
     end)
-
-    if not success or not result then
-        return false
-    end
+    if not success then return false end
 
     local data = HttpService:JSONDecode(result)
-    if not data or not data.data then
-        return false
-    end
+    if not data or not data.data then return false end
 
     local servers = {}
-    for _, server in ipairs(data.data) do
-        if server.playing < server.maxPlayers
-        and tostring(server.id) ~= tostring(currentJobId) then
-            table.insert(servers, server.id)
+    for _, s in ipairs(data.data) do
+        if s.playing < s.maxPlayers and s.id ~= oldJobId then
+            table.insert(servers, s.id)
         end
     end
-
-    if #servers == 0 then
-        return false
-    end
+    if #servers == 0 then return false end
 
     local targetId = servers[math.random(#servers)]
     TeleportService:TeleportToPlaceInstance(PlaceId, targetId, player)
-    return true
+
+    -- รอเช็กผล
+    task.wait(2)
+    return game.JobId ~= oldJobId
 end
 
 local function TeleportUntilSuccess()
     if teleporting then return end
     teleporting = true
-    retryCount = 0
-
-    Fluent:Notify({
-        Title = "Server Hop",
-        Content = "กำลังย้ายเซิร์ฟเวอร์...",
-        Duration = 4
-    })
 
     task.spawn(function()
-        while teleporting and retryCount < MAX_RETRY do
-            retryCount += 1
+        local tries = 0
+        while teleporting and tries < MAX_RETRY do
+            tries += 1
 
             local ok = teleportToRandomServer()
             if ok then
-                return
+                return -- สำเร็จ เกมจะโหลดใหม่
             end
 
             task.wait(RETRY_DELAY)
         end
 
         teleporting = false
-
-        Fluent:Notify({
-            Title = "Server Hop",
-            Content = "ไม่สามารถวาปได้ ลองใหม่อีกครั้ง",
-            Duration = 4
-        })
+        warn("Teleport failed after max retries")
     end)
 end
-
-TeleportService.TeleportInitFailed:Connect(function()
-    teleporting = false
-    task.wait(1)
-    TeleportUntilSuccess()
-end)
 
 --==================================================
 -- ADVANCED NOCLIP + STATE
