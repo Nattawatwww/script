@@ -460,9 +460,15 @@ local function teleportToRandomServer()
     local targetId = servers[math.random(#servers)]
     TeleportService:TeleportToPlaceInstance(PlaceId, targetId, player)
 
-    -- รอเช็กผล
-    task.wait(2)
-    return game.JobId ~= oldJobId
+    -- 🔥 รอแบบ polling แทน wait ตายตัว
+    for i = 1, 10 do
+        task.wait(0.5)
+        if game.JobId ~= oldJobId then
+            return true
+        end
+    end
+
+    return false
 end
 
 local function TeleportUntilSuccess()
