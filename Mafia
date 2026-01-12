@@ -503,6 +503,12 @@ local function TeleportUntilSuccess()
     end)
 end
 
+TeleportService.TeleportInitFailed:Connect(function()
+    teleporting = false
+    task.wait(1)
+    TeleportUntilSuccess()
+end)
+
 --==================================================
 -- ADVANCED NOCLIP + STATE
 --==================================================
