@@ -448,7 +448,6 @@ local function TeleportRS()
         return
     end
 
-    -- 🔀 สุ่มลำดับ
     for i = #servers, 2, -1 do
         local j = math.random(i)
         servers[i], servers[j] = servers[j], servers[i]
@@ -469,8 +468,6 @@ local function TeleportRS()
             return
         end
     end
-
-    -- 🛟 กันพลาดจริง
     TeleportService:Teleport(PlaceId, player)
 end
 --==================================================
@@ -654,23 +651,31 @@ local function BindAutoCrateDeathTeleport(character)
     local hum = character:WaitForChild("Humanoid", 5)
     if not hum then return end
 
-    hum.Died:Connect(function()
-        if not autoCrate then return end
-        autoCrate = false
-        autoCrateReady = false
+    local died = false
 
-        DisableLockVelocity()
-        DisableNoClip()
-        RestoreState()
+    hum.HealthChanged:Connect(function(hp)
+        if died then return end
+        if hp <= 0 and autoCrate then
+            died = true
 
-        Fluent:Notify({
-            Title = "Auto Crate",
-            Content = "คุณตายแล้ว กำลังย้ายเซิร์ฟเวอร์...",
-            Duration = 4
-        })
+            autoCrate = false
+            autoCrateReady = false
+            waitingTeleport = false
 
-        task.wait(1)
-        TeleportRS()
+            DisableLockVelocity()
+            DisableNoClip()
+            RestoreState()
+
+            Fluent:Notify({
+                Title = "Auto Crate",
+                Content = "คุณตายแล้ว กำลังย้ายเซิร์ฟเวอร์...",
+                Duration = 4
+            })
+
+            task.delay(4, function()
+                TeleportRS()
+            end)
+        end
     end)
 end
 
@@ -684,6 +689,7 @@ local function AutoCrateLoop()
         local weaponCrateInChar = char:FindFirstChild("PlayerWeaponCrate")
 
         if GetCrateCount() == 0 and not weaponCrateInChar then
+			task.wait(4)
             TeleportRS()
             return
         end
@@ -701,6 +707,7 @@ local function AutoCrateLoop()
                 end
 
                 if autoCrate and GetCrateCount() == 0 then
+					task.wait(1)
                     TeleportRS()
                 end
 
@@ -753,7 +760,6 @@ Tab:AddToggle("Auto Crate", {
     Callback = function(v)
         autoCrate = v
         if v then
-			task.wait(4)
             task.spawn(AutoCrateLoop)
         else
             DisableLockVelocity()
@@ -951,6 +957,8 @@ task.spawn(function()
         task.wait(0.5)
     end
 end)
+
+Window:SelectTab(Tab)
 
 updateAll()
 LOOT_PATH.ChildAdded:Connect(updateAll)
