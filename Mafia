@@ -1,6 +1,29 @@
+--==================================================
+-- SERVICES
+--==================================================
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local PlaceId = game.PlaceId
+local currentJobId = game.JobId
+local UIS = game:GetService("UserInputService")
+local Camera = Workspace.CurrentCamera
+
 if not game:IsLoaded() then
     game.Loaded:Wait()
 end
+
+repeat task.wait() until player
+
+local playerGui = player:WaitForChild("PlayerGui")
+
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
 
 local Fluent = loadstring(game:HttpGet(
     "https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"
@@ -35,23 +58,6 @@ end)
 
 local Tab = Window:AddTab({ Title = "Main", Icon = "box" })
 
---==================================================
--- SERVICES
---==================================================
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local VirtualUser = game:GetService("VirtualUser")
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-local PlaceId = game.PlaceId
-local currentJobId = game.JobId
-local UIS = game:GetService("UserInputService")
-local Camera = Workspace.CurrentCamera
-local pbtn = playerGui.Main.MainMenu.Menu.Buttons.PlayBtn
-
 local ESPEnabled = false
 local AimPlayerEnabled = false
 local AimNPCEnabled = false
@@ -69,6 +75,8 @@ local TARGET_1 = CFrame.new(-385.564789, 20, -807.528015)
 local TARGET_2 = CFrame.new(-57.7530785, 29, -405.38974)
 local TARGET_3 = CFrame.new(-282.676361, 29.668602, -651.730347)
 local TARGET_4 = CFrame.new(-343.397614, 20, -357.351868)
+
+local pbtn = playerGui.Main.MainMenu.Menu.Buttons.PlayBtn
 
 local LOOT_PATH =
     workspace
@@ -425,55 +433,45 @@ RunService.RenderStepped:Connect(function()
 end)
 
 local function TeleportRS()
-    local url =
-        "https://games.roblox.com/v1/games/"
-        .. PlaceId
-        .. "/servers/Public?limit=100"
-
-    local ok, res = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet(url))
-    end)
-
-    if not ok or not res or not res.data then
-        warn("❌ โหลดรายชื่อเซิร์ฟเวอร์ไม่ได้")
-        return
-    end
+    local HttpService = game:GetService("HttpService")
+    local TeleportService = game:GetService("TeleportService")
+    local player = game.Players.LocalPlayer
+    local PlaceId = game.PlaceId
 
     local servers = {}
+    local cursor = nil
 
-    for _, s in ipairs(res.data) do
-        if s.id ~= game.JobId and s.playing < s.maxPlayers then
-            table.insert(servers, s.id)
+    repeat
+        local url = "https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?limit=100"
+        if cursor then
+            url = url.."&cursor="..cursor
         end
-    end
 
-    if #servers == 0 then
-        warn("❌ ไม่มีเซิร์ฟเวอร์ให้สุ่ม")
-        return
-    end
-
-    for i = #servers, 2, -1 do
-        local j = math.random(i)
-        servers[i], servers[j] = servers[j], servers[i]
-    end
-
-    local tries = math.min(3, #servers)
-
-    for i = 1, tries do
-        local success = pcall(function()
-            TeleportService:TeleportToPlaceInstance(
-                PlaceId,
-                servers[i],
-                player
-            )
+        local ok, data = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet(url))
         end)
 
-        if success then
+        if not ok or not data or not data.data then
             return
         end
+
+        for _, s in ipairs(data.data) do
+            if s.id ~= game.JobId and s.playing < s.maxPlayers then
+                table.insert(servers, s.id)
+            end
+        end
+
+        cursor = data.nextPageCursor
+    until not cursor
+
+    if #servers > 0 then
+        local randomServerId = servers[math.random(1, #servers)]
+        TeleportService:TeleportToPlaceInstance(PlaceId, randomServerId, player)
+    else
+        TeleportService:Teleport(PlaceId, player)
     end
-    TeleportService:Teleport(PlaceId, player)
 end
+
 --==================================================
 -- ADVANCED NOCLIP + STATE
 --==================================================
