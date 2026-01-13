@@ -1,10 +1,9 @@
--- UPD 1.1
 local Fluent = loadstring(game:HttpGet(
     "https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"
 ))()
 
 local Window = Fluent:CreateWindow({
-    Title = "Random Mafia Shooter [1.1]",
+    Title = "Random Mafia Shooter [1.2]",
     SubTitle = "LuckyZ Hub",
     TabWidth = 160,
     Size = UDim2.fromOffset(520, 420),
@@ -56,7 +55,6 @@ local AntiAFK = true
 local autoCrate = false
 local autoCrateReady = false
 local waitingTeleport = false
-local teleporting = false
 
 --==================================================
 -- CONFIG
@@ -115,36 +113,35 @@ task.spawn(function()
     end
 end)
 
+--==================================================
+-- WEAPON CRATE UI
+--==================================================
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "WeaponCrateCounter"
-gui.ResetOnSpawn = false
-gui.Parent = playerGui
+local CrateUI = Tab:AddParagraph({
+    Title = "Weapon Crate",
+    Content = "กำลังตรวจสอบ..."
+})
 
-local frame = Instance.new("Frame")
-frame.Parent = gui
-frame.Size = UDim2.new(0, 240, 0, 45)
-frame.Position = UDim2.new(0, 15, 1, -60)
-frame.AnchorPoint = Vector2.new(0, 1)
-frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
-frame.BackgroundTransparency = 0.15
-frame.BorderSizePixel = 0
+local function GetCrateCount()
+    local count = 0
+    for _, v in ipairs(LOOT_PATH:GetChildren()) do
+        if v.Name == "WeaponCrate" then
+            count += 1
+        end
+    end
+    return count
+end
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
-corner.Parent = frame
+local function UpdateCrateUI()
+    local count = GetCrateCount()
 
-local text = Instance.new("TextLabel")
-text.Parent = frame
-text.Size = UDim2.new(1, -12, 1, -12)
-text.Position = UDim2.new(0, 6, 0, 6)
-text.BackgroundTransparency = 1
-text.Font = Enum.Font.GothamBold
-text.TextScaled = true
-text.TextColor3 = Color3.fromRGB(255,200,60)
-text.Text = "WeaponCrate : 0"
+    if count == 0 then
+        CrateUI:SetDesc("❌ WeaponCrate : 0")
+    else
+        CrateUI:SetDesc("📦 WeaponCrate : " .. count)
+    end
+end
 
---// HIGHLIGHT FUNCTION
 local function applyHighlight(crate)
     if crate:FindFirstChild("CrateHighlight") then return end
 
@@ -165,7 +162,7 @@ local function removeHighlight(crate)
     end
 end
 
-local function updateAll()
+local function UpdateCrateUI()
     local count = 0
 
     for _, v in ipairs(LOOT_PATH:GetChildren()) do
@@ -175,26 +172,16 @@ local function updateAll()
         end
     end
 
-    text.Text = "WeaponCrate : " .. count
-
     if count == 0 then
-        for _, v in ipairs(LOOT_PATH:GetChildren()) do
-            if v.Name == "WeaponCrate" then
-                removeHighlight(v)
-            end
-        end
+        CrateUI:SetDesc("❌ WeaponCrate : 0")
+    else
+        CrateUI:SetDesc("📦 WeaponCrate : " .. count)
     end
 end
 
-local function GetCrateCount()
-    local c = 0
-    for _, v in ipairs(LOOT_PATH:GetChildren()) do
-        if v.Name == "WeaponCrate" then
-            c += 1
-        end
-    end
-    return c
-end
+UpdateCrateUI()
+LOOT_PATH.ChildAdded:Connect(UpdateCrateUI)
+LOOT_PATH.ChildRemoved:Connect(UpdateCrateUI)
 
 
 --==================================================
@@ -433,66 +420,59 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-local MAX_RETRY = 10
-local RETRY_DELAY = 3
-local retryCount = 0
+local function TeleportRS()
+    local url =
+        "https://games.roblox.com/v1/games/"
+        .. PlaceId
+        .. "/servers/Public?limit=100"
 
-local function teleportToRandomServer()
-    local oldJobId = game.JobId
-
-    local url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
-    local success, result = pcall(function()
-        return game:HttpGet(url)
+    local ok, res = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(url))
     end)
-    if not success then return false end
 
-    local data = HttpService:JSONDecode(result)
-    if not data or not data.data then return false end
+    if not ok or not res or not res.data then
+        warn("❌ โหลดรายชื่อเซิร์ฟเวอร์ไม่ได้")
+        return
+    end
 
     local servers = {}
-    for _, s in ipairs(data.data) do
-        if s.playing < s.maxPlayers and s.id ~= oldJobId then
+
+    for _, s in ipairs(res.data) do
+        if s.id ~= game.JobId and s.playing < s.maxPlayers then
             table.insert(servers, s.id)
         end
     end
-    if #servers == 0 then return false end
 
-    local targetId = servers[math.random(#servers)]
-    TeleportService:TeleportToPlaceInstance(PlaceId, targetId, player)
+    if #servers == 0 then
+        warn("❌ ไม่มีเซิร์ฟเวอร์ให้สุ่ม")
+        return
+    end
 
-    -- 🔥 รอแบบ polling แทน wait ตายตัว
-    for i = 1, 10 do
-        task.wait(0.5)
-        if game.JobId ~= oldJobId then
-            return true
+    -- 🔀 สุ่มลำดับ
+    for i = #servers, 2, -1 do
+        local j = math.random(i)
+        servers[i], servers[j] = servers[j], servers[i]
+    end
+
+    local tries = math.min(3, #servers)
+
+    for i = 1, tries do
+        local success = pcall(function()
+            TeleportService:TeleportToPlaceInstance(
+                PlaceId,
+                servers[i],
+                player
+            )
+        end)
+
+        if success then
+            return
         end
     end
 
-    return false
+    -- 🛟 กันพลาดจริง
+    TeleportService:Teleport(PlaceId, player)
 end
-
-local function TeleportUntilSuccess()
-    if teleporting then return end
-    teleporting = true
-
-    task.spawn(function()
-        local tries = 0
-        while teleporting and tries < MAX_RETRY do
-            tries += 1
-
-            local ok = teleportToRandomServer()
-            if ok then
-                return -- สำเร็จ เกมจะโหลดใหม่
-            end
-
-            task.wait(RETRY_DELAY)
-        end
-
-        teleporting = false
-        warn("Teleport failed after max retries")
-    end)
-end
-
 --==================================================
 -- ADVANCED NOCLIP + STATE
 --==================================================
@@ -617,6 +597,10 @@ local function DisableLockVelocity()
     end
 end
 
+--==================================================
+-- FlyAndStay
+--==================================================
+
 local stayFly = false
 local stayConn
 
@@ -671,18 +655,22 @@ local function BindAutoCrateDeathTeleport(character)
     if not hum then return end
 
     hum.Died:Connect(function()
-        if autoCrate then
-            autoCrate = false
-            waitingTeleport = false
+        if not autoCrate then return end
+        autoCrate = false
+        autoCrateReady = false
 
-            Fluent:Notify({
-                Title = "Auto Crate",
-                Content = "คุณตายแล้ว กำลังย้ายเซิร์ฟเวอร์...",
-                Duration = 4
-            })
+        DisableLockVelocity()
+        DisableNoClip()
+        RestoreState()
 
-            TeleportUntilSuccess()
-        end
+        Fluent:Notify({
+            Title = "Auto Crate",
+            Content = "คุณตายแล้ว กำลังย้ายเซิร์ฟเวอร์...",
+            Duration = 4
+        })
+
+        task.wait(1)
+        TeleportRS()
     end)
 end
 
@@ -696,7 +684,7 @@ local function AutoCrateLoop()
         local weaponCrateInChar = char:FindFirstChild("PlayerWeaponCrate")
 
         if GetCrateCount() == 0 and not weaponCrateInChar then
-            TeleportUntilSuccess()
+            TeleportRS()
             return
         end
 
@@ -713,7 +701,7 @@ local function AutoCrateLoop()
                 end
 
                 if autoCrate and GetCrateCount() == 0 then
-                    TeleportUntilSuccess()
+                    TeleportRS()
                 end
 
                 waitingTeleport = false
@@ -755,7 +743,6 @@ local function AutoCrateLoop()
     end
 end
 
-
 --==================================================
 -- Tap
 --==================================================
@@ -765,9 +752,8 @@ Tab:AddToggle("Auto Crate", {
     Default = true,
     Callback = function(v)
         autoCrate = v
-        waitingTeleport = false
-
         if v then
+			task.wait(4)
             task.spawn(AutoCrateLoop)
         else
             DisableLockVelocity()
@@ -786,7 +772,6 @@ Tab:AddToggle("Farm 1k", {
         end
     end
 })
-
 
 Tab:AddButton({
     Title = "Fly To Sell",
@@ -881,7 +866,7 @@ Tab:AddButton({
     Title = "Teleport To Random Server",
     Description = "ย้ายไปเซิร์ฟเวอร์สุ่ม",
     Callback = function()
-        teleportToRandomServer()
+        TeleportRS()
     end
 })
 
