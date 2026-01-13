@@ -753,7 +753,7 @@ Tab:AddToggle("Auto Crate", {
     Callback = function(v)
         autoCrate = v
         if v then
-			task.wait(4)
+			task.wait(8)
             task.spawn(AutoCrateLoop)
         else
             DisableLockVelocity()
