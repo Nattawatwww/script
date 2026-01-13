@@ -707,7 +707,7 @@ local function AutoCrateLoop()
                 end
 
                 if autoCrate and GetCrateCount() == 0 then
-					task.wait(4)
+					task.wait(1)
                     TeleportRS()
                 end
 
