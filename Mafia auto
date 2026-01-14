@@ -11,7 +11,6 @@ local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 local PlaceId = game.PlaceId
 local teleporting = false
-local MAX_TP_RETRY = 10
 
 -- WAIT FOR GAME / PLAYER / CHAR / HRP / LOOT
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -118,60 +117,31 @@ end
 --==============================
 -- SERVER HOP
 --==============================
-local function findRandomServer()
-	local url = "https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
-
-	local success, result = pcall(function()
-		return game:HttpGet(url)
-	end)
-
-	if success then
-		local data = HttpService:JSONDecode(result)
-		local servers = {}
-
-		for _, server in ipairs(data.data) do
-			if server.id ~= currentJobId then
-				table.insert(servers, server.id)
-			end
-		end
-
-		if #servers > 0 then
-			return servers[math.random(1, #servers)]
-		end
-	end
-	return nil
-end
-
 local function TeleportRS()
-	if teleporting then return end
-	teleporting = true
+    if teleporting then return end
+    teleporting = true
+    
+    setStatus("🌐 กำลังหาเซิร์ฟเวอร์ใหม่...")
+    task.wait(1)
 
-	local currentJobId = game.JobId
-	local tries = 0
+    local success, errorMessage = pcall(function()
+        local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100")).data
+        local targetServer = servers[math.random(1, #servers)]
+        
+        if targetServer and targetServer.id ~= game.JobId then
+            TeleportService:TeleportToPlaceInstance(PlaceId, targetServer.id, player)
+        else
+            TeleportService:Teleport(PlaceId, player)
+        end
+    end)
 
-	while tries < MAX_TP_RETRY do
-		tries += 1
-		setStatus("🌐 กำลังย้ายเซิร์ฟเวอร์... ("..tries..")")
-
-		local jobId = findRandomServer()
-		if jobId then
-			pcall(function()
-				TeleportService:TeleportToPlaceInstance(PlaceId, jobId, player)
-			end)
-		end
-
-		task.wait(4)
-
-		if game.JobId ~= currentJobId then
-			return
-		end
-	end
-
-	teleporting = false
-	warn("❌ วาปไม่สำเร็จหลังจากพยายาม "..MAX_TP_RETRY.." ครั้ง")
-	setStatus("❌ วาปไม่สำเร็จ | ลองใหม่อีกครั้ง")
+    if not success then
+        warn("Teleport Failed: " .. errorMessage)
+        task.wait(5)
+        teleporting = false
+        TeleportRS()
+    end
 end
-
 
 --==============================
 -- AUTO CRATE LOOP
