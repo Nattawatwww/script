@@ -1,965 +1,256 @@
---==================================================
+--================================
+-- AUTO WEAPON CRATE NO UI + STATUS
+--================================
+
 -- SERVICES
---==================================================
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
-local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
+
+local player = Players.LocalPlayer
 local PlaceId = game.PlaceId
-local currentJobId = game.JobId
-local UIS = game:GetService("UserInputService")
-local Camera = Workspace.CurrentCamera
+local teleporting = false
+local MAX_TP_RETRY = 10
 
-if not game:IsLoaded() then
-    game.Loaded:Wait()
-end
-
+-- WAIT FOR GAME / PLAYER / CHAR / HRP / LOOT
+if not game:IsLoaded() then game.Loaded:Wait() end
 repeat task.wait() until player
-
-local playerGui = player:WaitForChild("PlayerGui")
 
 local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
-local Fluent = loadstring(game:HttpGet(
-    "https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"
-))()
+local LOOT_PATH
+repeat
+    LOOT_PATH = workspace:FindFirstChild("Map")
+                and workspace.Map:FindFirstChild("MapModel")
+                and workspace.Map.MapModel:FindFirstChild("CargoShip")
+                and workspace.Map.MapModel.CargoShip:FindFirstChild("Loot")
+    task.wait(0.5)
+until LOOT_PATH
 
-local Window = Fluent:CreateWindow({
-    Title = "Random Mafia Shooter [1.2]",
-    SubTitle = "LuckyZ Hub",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(520, 420),
-    Acrylic = false,
-    Theme = "Dark"
-})
+-- STATUS UI
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.ResetOnSpawn = false
+local status = Instance.new("TextLabel", gui)
+status.Size = UDim2.new(0, 650, 0, 40)
+status.Position = UDim2.new(0.5, -325, 0, 10)
+status.BackgroundColor3 = Color3.fromRGB(20,20,20)
+status.BackgroundTransparency = 0.25
+status.TextColor3 = Color3.new(1,1,1)
+status.Font = Enum.Font.GothamBold
+status.TextScaled = true
+status.BorderSizePixel = 0
+status.TextStrokeTransparency = 0.4
+status.ZIndex = 9999
+status.Text = "🔄 Initializing..."
+local function setStatus(txt) status.Text = txt end
 
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-local Button = Instance.new("ImageButton", ScreenGui)
+-- POSITION TO SELL
+local SELL_CF = CFrame.new(-57.7530785, 29, -405.38974)
 
-Button.Size = UDim2.new(0, 60, 0, 60)
-Button.Position = UDim2.new(0, 20, 0, 20)
-Button.BackgroundTransparency = 1
-Button.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-Button.ZIndex = 9999
-Button.Active = true
-Button.Draggable = true
-Button.Image = "rbxassetid://136609951292659"
-
-local isVisible = true
-Button.MouseButton1Click:Connect(function()
-	isVisible = not isVisible
-	Window:Minimize()
-end)
-
-local Tab = Window:AddTab({ Title = "Main", Icon = "box" })
-
-local ESPEnabled = false
-local AimPlayerEnabled = false
-local AimNPCEnabled = false
-local AntiAFK = true
-local autoCrate = false
-local autoCrateReady = false
+-- STATE
+local autoCrate = true
+local noclipConn, velConn
+local savedState = {}
 local waitingTeleport = false
 
---==================================================
--- CONFIG
---==================================================
-local SPEED_FLY_1 = 35
-
-local TARGET_1 = CFrame.new(-385.564789, 20, -807.528015)
-local TARGET_2 = CFrame.new(-57.7530785, 29, -405.38974)
-local TARGET_3 = CFrame.new(-282.676361, 29.668602, -651.730347)
-local TARGET_4 = CFrame.new(-343.397614, 20, -357.351868)
-
-local pbtn = playerGui.Main.MainMenu.Menu.Buttons.PlayBtn
-
-local LOOT_PATH =
-    workspace
-    :WaitForChild("Map")
-    :WaitForChild("MapModel")
-    :WaitForChild("CargoShip")
-    :WaitForChild("Loot")
-
---==================================================
--- PROXIMITY PROMPT
---==================================================
-local function setPrompt(obj)
-    if obj:IsA("ProximityPrompt") then
-        obj.HoldDuration = 0
-    end
-end
-
-for _, v in ipairs(workspace:GetDescendants()) do
-    setPrompt(v)
-end
-workspace.DescendantAdded:Connect(setPrompt)
-
---==================================================
--- REMOVE NOCLIP DETECTOR
---==================================================
-local function removeNoclipDetector(character)
-    local detector = character:FindFirstChild("NoclipDetector")
-    if detector then detector:Destroy() end
-
-    character.ChildAdded:Connect(function(child)
-        if child.Name == "NoclipDetector" then
-            child:Destroy()
-        end
-    end)
-end
-
-task.spawn(function()
-    while true do
-        if AntiAFK then
-            pcall(function()
-                VirtualUser:CaptureController()
-                VirtualUser:ClickButton2(Vector2.new(0,0))
-            end)
-        end
-        task.wait(600)
-    end
-end)
-
---==================================================
--- WEAPON CRATE UI
---==================================================
-
-local CrateUI = Tab:AddParagraph({
-    Title = "Weapon Crate",
-    Content = "กำลังตรวจสอบ..."
-})
-
+--==============================
+-- UTIL FUNCTIONS
+--==============================
 local function GetCrateCount()
     local count = 0
-    for _, v in ipairs(LOOT_PATH:GetChildren()) do
-        if v.Name == "WeaponCrate" then
-            count += 1
-        end
+    for _,v in ipairs(LOOT_PATH:GetChildren()) do
+        if v.Name == "WeaponCrate" then count += 1 end
     end
     return count
 end
 
-local function UpdateCrateUI()
-    local count = GetCrateCount()
-
-    if count == 0 then
-        CrateUI:SetDesc("❌ WeaponCrate : 0")
-    else
-        CrateUI:SetDesc("📦 WeaponCrate : " .. count)
-    end
-end
-
-local function applyHighlight(crate)
-    if crate:FindFirstChild("CrateHighlight") then return end
-
-    local h = Instance.new("Highlight")
-    h.Name = "CrateHighlight"
-    h.FillColor = Color3.fromRGB(255, 0, 0)
-    h.FillTransparency = 0.5
-    h.OutlineColor = Color3.fromRGB(255, 80, 80)
-    h.OutlineTransparency = 0
-    h.Adornee = crate
-    h.Parent = crate
-end
-
-local function removeHighlight(crate)
-    local h = crate:FindFirstChild("CrateHighlight")
-    if h then
-        h:Destroy()
-    end
-end
-
-local function UpdateCrateUI()
-    local count = 0
-
-    for _, v in ipairs(LOOT_PATH:GetChildren()) do
-        if v.Name == "WeaponCrate" then
-            count += 1
-            applyHighlight(v)
-        end
-    end
-
-    if count == 0 then
-        CrateUI:SetDesc("❌ WeaponCrate : 0")
-    else
-        CrateUI:SetDesc("📦 WeaponCrate : " .. count)
-    end
-end
-
-UpdateCrateUI()
-LOOT_PATH.ChildAdded:Connect(UpdateCrateUI)
-LOOT_PATH.ChildRemoved:Connect(UpdateCrateUI)
-
-
---==================================================
--- PLAYER ESP
---==================================================
-local highlightFolder = Workspace:FindFirstChild("HighlightContainer") or Instance.new("Folder")
-highlightFolder.Name = "HighlightContainer"
-highlightFolder.Parent = Workspace
-
-local function getTeamColor(player)
-    if not player.Team or not localPlayer.Team then
-        return Color3.fromRGB(255,0,0)
-    end
-    return (player.Team == localPlayer.Team)
-        and Color3.fromRGB(0,170,255)
-        or Color3.fromRGB(255,0,0)
-end
-
-local function applyESP(p)
-    if not ESPEnabled then return end
-    if p == player then return end
-
-    local function setup(character)
-        if not ESPEnabled then return end
-        if p == player then return end
-
-        local old = highlightFolder:FindFirstChild(p.Name .. "_ESP")
-        if old then old:Destroy() end
-
-        local h = Instance.new("Highlight")
-        h.Name = p.Name .. "_ESP"
-        h.Adornee = character
-        h.FillColor = getTeamColor(p)
-        h.OutlineColor = Color3.new(1,1,1)
-        h.OutlineTransparency = 0.2
-        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        h.Parent = highlightFolder
-    end
-
-    p.CharacterAdded:Connect(setup)
-    if p.Character then
-        setup(p.Character)
-    end
-end
-
-local function ClearESP()
-    for _,v in ipairs(highlightFolder:GetChildren()) do
-        v:Destroy()
-    end
-end
-
-local function RefreshESP()
-    if not ESPEnabled then return end
-
-    ClearESP()
-
-    for _,p in ipairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            applyESP(p)
-        end
-    end
-end
-
---==================================================
--- AIMLOCK PLAYER
---==================================================
-
-local function IsVisible(targetPart, useCheck)
-    if not useCheck then
-        return true
-    end
-
-    local origin = Camera.CFrame.Position
-    local direction = targetPart.Position - origin
-
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Blacklist
-    params.FilterDescendantsInstances = {
-        player.Character,
-        Camera
-    }
-
-    local result = Workspace:Raycast(origin, direction, params)
-    return result and result.Instance:IsDescendantOf(targetPart.Parent)
-end
-
-local PlayerLocking = false
-local PlayerSettings = {
-    Key = Enum.KeyCode.E,
-    FOV = 60,
-    Smooth = 0.4,
-    AimPart = "Head",
-    VisibleCheck = true
-}
-
-local PlayerFOV = Drawing.new("Circle")
-PlayerFOV.Visible = false
-PlayerFOV.Thickness = 2
-PlayerFOV.Radius = PlayerSettings.FOV
-PlayerFOV.Color = Color3.new(1,1,1)
-PlayerFOV.Filled = false
-
-local function GetClosestPlayer()
-    local closest, dist = nil, PlayerSettings.FOV
-    local center = Vector2.new(
-        Camera.ViewportSize.X / 2,
-        Camera.ViewportSize.Y / 2
-    )
-
-    for _,p in ipairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            local part = p.Character:FindFirstChild(PlayerSettings.AimPart)
-            local hum = p.Character:FindFirstChild("Humanoid")
-
-            if part and hum and hum.Health > 0 then
-                local pos, onScreen =
-                    Camera:WorldToViewportPoint(part.Position)
-
-                if onScreen then
-                    local d = (center - Vector2.new(pos.X, pos.Y)).Magnitude
-                    if d < dist and IsVisible(part, PlayerSettings.VisibleCheck) then
-                        closest = part
-                        dist = d
-                    end
-                end
-            end
-        end
-    end
-
-    return closest
-end
-
---==================================================
--- AIMLOCK NPC / ENEMY
---==================================================
-local NPCLocking = false
-local NPCSettings = {
-    Key = Enum.KeyCode.F,
-    FOV = 60,
-    Smooth = 0.4,
-    AimPart = "Head",
-    VisibleCheck = true
-}
-
-local TargetFolders = {
-    Workspace:WaitForChild("Enemies"),
-    Workspace.Map.MapModel.JewelryStore:WaitForChild("Npcs"),
-    Workspace.Map.MapModel.CargoShip:WaitForChild("Npcs"),
-    Workspace.Map:WaitForChild("Civilians")
-}
-
-local NPCFOV = Drawing.new("Circle")
-NPCFOV.Visible = false
-NPCFOV.Radius = NPCSettings.FOV
-NPCFOV.Thickness = 2
-NPCFOV.Color = Color3.new(1,1,1)
-
-local function GetClosestNPC()
-    local closest, dist = nil, NPCSettings.FOV
-    local center = Vector2.new(
-        Camera.ViewportSize.X / 2,
-        Camera.ViewportSize.Y / 2
-    )
-
-    for _,folder in ipairs(TargetFolders) do
-        for _,m in ipairs(folder:GetChildren()) do
-            if m:IsA("Model") then
-                local hum = m:FindFirstChildOfClass("Humanoid")
-                local part = m:FindFirstChild(NPCSettings.AimPart)
-
-                if hum and part and hum.Health > 0 then
-                    local pos, onScreen =
-                        Camera:WorldToViewportPoint(part.Position)
-
-                    if onScreen then
-                        local d = (center - Vector2.new(pos.X, pos.Y)).Magnitude
-                        if d < dist and IsVisible(part, NPCSettings.VisibleCheck) then
-                            closest = part
-                            dist = d
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return closest
-end
-
-UIS.InputBegan:Connect(function(input,gp)
-    if gp then return end
-
-    if AimPlayerEnabled and input.KeyCode == PlayerSettings.Key then
-        PlayerLocking = true
-    end
-
-    if AimNPCEnabled and input.KeyCode == NPCSettings.Key then
-        NPCLocking = true
-    end
-end)
-
-UIS.InputEnded:Connect(function(input)
-    if input.KeyCode == PlayerSettings.Key then
-        PlayerLocking = false
-    end
-    if input.KeyCode == NPCSettings.Key then
-        NPCLocking = false
-    end
-end)
-
-RunService.RenderStepped:Connect(function()
-    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-
-    PlayerFOV.Visible = AimPlayerEnabled
-    NPCFOV.Visible = AimNPCEnabled
-    PlayerFOV.Position = center
-    NPCFOV.Position = center
-
-    if AimPlayerEnabled and PlayerLocking then
-        local t = GetClosestPlayer()
-        if t then
-            Camera.CFrame = Camera.CFrame:Lerp(
-                CFrame.lookAt(Camera.CFrame.Position, t.Position),
-                PlayerSettings.Smooth
-            )
-        end
-    end
-
-    if AimNPCEnabled and NPCLocking then
-        local t = GetClosestNPC()
-        if t then
-            Camera.CFrame = Camera.CFrame:Lerp(
-                CFrame.lookAt(Camera.CFrame.Position, t.Position),
-                NPCSettings.Smooth
-            )
-        end
-    end
-end)
-
-local function TeleportRS()
-    local HttpService = game:GetService("HttpService")
-    local TeleportService = game:GetService("TeleportService")
-    local player = game.Players.LocalPlayer
-    local PlaceId = game.PlaceId
-
-    local servers = {}
-    local cursor = nil
-
-    repeat
-        local url = "https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?limit=100"
-        if cursor then
-            url = url.."&cursor="..cursor
-        end
-
-        local ok, data = pcall(function()
-            return HttpService:JSONDecode(game:HttpGet(url))
-        end)
-
-        if not ok or not data or not data.data then
-            return
-        end
-
-        for _, s in ipairs(data.data) do
-            if s.id ~= game.JobId and s.playing < s.maxPlayers then
-                table.insert(servers, s.id)
-            end
-        end
-
-        cursor = data.nextPageCursor
-    until not cursor
-
-    if #servers > 0 then
-        local randomServerId = servers[math.random(1, #servers)]
-        TeleportService:TeleportToPlaceInstance(PlaceId, randomServerId, player)
-    else
-        TeleportService:Teleport(PlaceId, player)
-    end
-end
-
---==================================================
--- ADVANCED NOCLIP + STATE
---==================================================
-local noclip = false
-local flying = false
-local noclipConn
-local originalState = {}
-
-local function SaveState(character)
-    originalState = {}
-    for _, part in ipairs(character:GetDescendants()) do
-        if part:IsA("BasePart") then
-            originalState[part] = {
-                CanCollide = part.CanCollide,
-                CanTouch   = part.CanTouch,
-                CanQuery   = part.CanQuery
-            }
+local function SaveState(char)
+    savedState = {}
+    for _,v in ipairs(char:GetDescendants()) do
+        if v:IsA("BasePart") then
+            savedState[v] = { v.CanCollide, v.CanTouch, v.CanQuery }
         end
     end
 end
 
 local function RestoreState()
-    for part, state in pairs(originalState) do
-        if part and part.Parent then
-            part.CanCollide = state.CanCollide
-            part.CanTouch   = state.CanTouch
-            part.CanQuery   = state.CanQuery
+    for p,s in pairs(savedState) do
+        if p and p.Parent then
+            p.CanCollide = s[1]
+            p.CanTouch   = s[2]
+            p.CanQuery   = s[3]
         end
     end
-    originalState = {}
+    savedState = {}
 end
 
-local function EnableNoClip(character)
+local function EnableNoClip(char)
     if noclipConn then noclipConn:Disconnect() end
     noclipConn = RunService.Heartbeat:Connect(function()
-        for _, part in ipairs(character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-                part.CanTouch   = false
-                part.CanQuery   = false
+        for _,v in ipairs(char:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = false
+                v.CanTouch   = false
+                v.CanQuery   = false
             end
         end
     end)
 end
 
 local function DisableNoClip()
-    if noclipConn then
-        noclipConn:Disconnect()
-        noclipConn = nil
-    end
+    if noclipConn then noclipConn:Disconnect() end
 end
 
---==================================================
--- FLY
---==================================================
-local function SmoothFly(targetCFrame, speed)
-    if flying then return end
-    flying = true
-
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart")
-
-    SaveState(char)
-    EnableNoClip(char)
-
-    local velConn
-    velConn = RunService.Heartbeat:Connect(function()
-        if hrp and hrp.Parent then
-            hrp.Velocity = Vector3.zero
-            hrp.AssemblyLinearVelocity = Vector3.zero
-        end
-    end)
-
-    local startPos = hrp.Position
-    local targetY = targetCFrame.Position.Y
-    local tY = math.abs(startPos.Y - targetY) / speed
-
-    local tweenY = TweenService:Create(
-        hrp,
-        TweenInfo.new(tY, Enum.EasingStyle.Linear),
-        { CFrame = CFrame.new(startPos.X, targetY, startPos.Z) * hrp.CFrame.Rotation }
-    )
-    tweenY:Play()
-    tweenY.Completed:Wait()
-
-    local dist = (hrp.Position - targetCFrame.Position).Magnitude
-    local tMove = dist / speed
-
-    local tweenMove = TweenService:Create(
-        hrp,
-        TweenInfo.new(tMove, Enum.EasingStyle.Linear),
-        { CFrame = targetCFrame }
-    )
-    tweenMove:Play()
-    tweenMove.Completed:Wait()
-
+local function LockVel(hrp)
     if velConn then velConn:Disconnect() end
-    DisableNoClip()
-    RestoreState()
-    flying = false
-end
-
---==================================================
--- LOCK VELOCITY (AUTOCRATE ONLY)
---==================================================
-local lockVelConn
-
-local function EnableLockVelocity(hrp)
-    if lockVelConn then lockVelConn:Disconnect() end
-    lockVelConn = RunService.Heartbeat:Connect(function()
-        if hrp and hrp.Parent then
-            hrp.Velocity = Vector3.zero
-            hrp.AssemblyLinearVelocity = Vector3.zero
-        end
+    velConn = RunService.Heartbeat:Connect(function()
+        hrp.Velocity = Vector3.zero
+        hrp.AssemblyLinearVelocity = Vector3.zero
     end)
 end
 
-local function DisableLockVelocity()
-    if lockVelConn then
-        lockVelConn:Disconnect()
-        lockVelConn = nil
-    end
+local function UnlockVel()
+    if velConn then velConn:Disconnect() end
 end
 
---==================================================
--- FlyAndStay
---==================================================
+--==============================
+-- SERVER HOP
+--==============================
+local function findRandomServer()
+	local url = "https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
 
-local stayFly = false
-local stayConn
+	local success, result = pcall(function()
+		return game:HttpGet(url)
+	end)
 
-local function FlyAndStay(cf)
-    if stayFly then return end
-    stayFly = true
+	if success then
+		local data = HttpService:JSONDecode(result)
+		local servers = {}
 
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart")
+		for _, server in ipairs(data.data) do
+			if server.id ~= currentJobId then
+				table.insert(servers, server.id)
+			end
+		end
 
-    SmoothFly(cf, 35)
+		if #servers > 0 then
+			return servers[math.random(1, #servers)]
+		end
+	end
+	return nil
+end
 
+local function TeleportRS()
+	if teleporting then return end
+	teleporting = true
+
+	local currentJobId = game.JobId
+	local tries = 0
+
+	while tries < MAX_TP_RETRY do
+		tries += 1
+		setStatus("🌐 กำลังย้ายเซิร์ฟเวอร์... ("..tries..")")
+
+		local jobId = findRandomServer()
+		if jobId then
+			pcall(function()
+				TeleportService:TeleportToPlaceInstance(PlaceId, jobId, player)
+			end)
+		end
+
+		task.wait(4)
+
+		if game.JobId ~= currentJobId then
+			return
+		end
+	end
+
+	teleporting = false
+	warn("❌ วาปไม่สำเร็จหลังจากพยายาม "..MAX_TP_RETRY.." ครั้ง")
+	setStatus("❌ วาปไม่สำเร็จ | ลองใหม่อีกครั้ง")
+end
+
+
+--==============================
+-- AUTO CRATE LOOP
+--==============================
+local function AutoCrateLoop()
     SaveState(char)
     EnableNoClip(char)
-    EnableLockVelocity(hrp)
-
-    stayConn = RunService.Heartbeat:Connect(function()
-        if not stayFly then return end
-        if hrp and hrp.Parent then
-            hrp.CFrame = cf
-            hrp.Velocity = Vector3.zero
-            hrp.AssemblyLinearVelocity = Vector3.zero
-        end
-    end)
-end
-
-local function StopStayFly()
-    stayFly = false
-
-    if stayConn then
-        stayConn:Disconnect()
-        stayConn = nil
-    end
-
-    DisableLockVelocity()
-    DisableNoClip()
-    RestoreState()
-end
-
-local function LookUp()
-    local cam = workspace.CurrentCamera
-    local pos = cam.CFrame.Position
-
-    cam.CFrame = CFrame.lookAt(
-        pos,
-        pos + Vector3.new(0, 1, 0)
-    )
-end
-
-local function BindAutoCrateDeathTeleport(character)
-    local hum = character:WaitForChild("Humanoid", 5)
-    if not hum then return end
-
-    local died = false
-
-    hum.HealthChanged:Connect(function(hp)
-        if died then return end
-        if hp <= 0 and autoCrate then
-            died = true
-
-            autoCrate = false
-            autoCrateReady = false
-            waitingTeleport = false
-
-            DisableLockVelocity()
-            DisableNoClip()
-            RestoreState()
-
-            Fluent:Notify({
-                Title = "Auto Crate",
-                Content = "คุณตายแล้ว กำลังย้ายเซิร์ฟเวอร์...",
-                Duration = 4
-            })
-
-            task.delay(3, function()
-                TeleportRS()
-            end)
-        end
-    end)
-end
-
-local function AutoCrateLoop()
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart")
+    LockVel(hrp)
 
     while autoCrate do
-        autoCrateReady = true
-
+        local crateCount = GetCrateCount()
         local weaponCrateInChar = char:FindFirstChild("PlayerWeaponCrate")
 
-        if GetCrateCount() == 0 and not weaponCrateInChar then
+        if crateCount == 0 and not weaponCrateInChar then
+            setStatus("❌ ไม่มี WeaponCrate | กล่องเหลือ 0 | กำลังย้ายเซิร์ฟ")
             TeleportRS()
             return
         end
 
-        if GetCrateCount() == 0 and weaponCrateInChar and not waitingTeleport then
+        if crateCount == 0 and weaponCrateInChar and not waitingTeleport then
             waitingTeleport = true
-
             task.spawn(function()
-                while autoCrate and char:FindFirstChild("PlayerWeaponCrate") do
-                    task.wait(0.2)
-                end
-
-                if autoCrate then
-                    task.wait(3)
-                end
-
-                if autoCrate and GetCrateCount() == 0 then
-                    TeleportRS()
-                end
-
+                while autoCrate and char:FindFirstChild("PlayerWeaponCrate") do task.wait(0.2) end
+                task.wait(3)
+                if autoCrate and GetCrateCount() == 0 then TeleportRS() end
                 waitingTeleport = false
             end)
         end
 
         for _, crate in ipairs(LOOT_PATH:GetChildren()) do
-            if not autoCrate then break end
             if crate.Name ~= "WeaponCrate" then continue end
-
             local part = crate:FindFirstChildWhichIsA("BasePart")
             local prompt = crate:FindFirstChildWhichIsA("ProximityPrompt", true)
-
             if part and prompt and crate.Parent then
-                EnableLockVelocity(hrp)
-                EnableNoClip(char)
-
                 while autoCrate and crate.Parent do
-                    hrp.CFrame = part.CFrame * CFrame.new(0, -5, 0)
+                    setStatus("📦 ฟาร์มอยู่ | กล่องเหลือ "..GetCrateCount())
+                    hrp.CFrame = part.CFrame * CFrame.new(0,-5,0)
                     task.wait(0.09)
-                    pcall(function()
-                        fireproximityprompt(prompt)
-                    end)
+                    pcall(function() fireproximityprompt(prompt) end)
                     task.wait(0.03)
+
                     if char:FindFirstChild("PlayerWeaponCrate") then
+                        setStatus("💰 ได้ของแล้ว | กำลังไปขาย | กล่องเหลือ "..GetCrateCount())
                         repeat
-                            hrp.CFrame = TARGET_2
+                            hrp.CFrame = SELL_CF
                             task.wait(0.5)
                         until not char:FindFirstChild("PlayerWeaponCrate")
                         break
                     end
                 end
-
-                DisableLockVelocity()
-                DisableNoClip()
-                RestoreState()
             end
         end
     end
+
+    UnlockVel()
+    DisableNoClip()
+    RestoreState()
 end
 
---==================================================
--- Tap
---==================================================
-
-Tab:AddToggle("Auto Crate", {
-    Title = "Auto Farm WeaponCrate",
-    Default = true,
-    Callback = function(v)
-        autoCrate = v
-        if v then
-            task.spawn(AutoCrateLoop)
-        else
-            DisableLockVelocity()
-        end
-    end
-})
-
-Tab:AddToggle("Farm 1k", {
-    Title = "Farm",
-    Default = false,
-    Callback = function(v)
-        if v then
-            FlyAndStay(TARGET_4)
-        else
-            StopStayFly()
-        end
-    end
-})
-
-Tab:AddButton({
-    Title = "Fly To Sell",
-    Callback = function()
-        task.spawn(function()
-            local char = player.Character or player.CharacterAdded:Wait()
-            local hrp = char:WaitForChild("HumanoidRootPart")
-
-            local currentPos = hrp.Position
-
-            local downCFrame = CFrame.new(
-                currentPos.X,
-                20,
-                currentPos.Z
-            )
-
-            local moveXZCFrame = CFrame.new(
-                TARGET_2.Position.X,
-                20,
-                TARGET_2.Position.Z
-            )
-
-            local finalCFrame = TARGET_2
-
-            SmoothFly(downCFrame, 35)
-            SmoothFly(moveXZCFrame, 35)
-            SmoothFly(finalCFrame, 35)
-        end)
-    end
-})
-
-Tab:AddButton({
-    Title = "Fly To Jeweler",
-    Callback = function()
-        task.spawn(function()
-            local char = player.Character or player.CharacterAdded:Wait()
-            local hrp = char:WaitForChild("HumanoidRootPart")
-
-            local currentPos = hrp.Position
-
-            local downCFrame = CFrame.new(
-                currentPos.X,
-                20,
-                currentPos.Z
-            )
-
-            local moveXZCFrame = CFrame.new(
-                TARGET_3.Position.X,
-                20,
-                TARGET_3.Position.Z
-            )
-
-            local finalCFrame = TARGET_3
-
-            SmoothFly(downCFrame, 35)
-            SmoothFly(moveXZCFrame, 35)
-            SmoothFly(finalCFrame, 35)
-        end)
-    end
-})
-
-Tab:AddButton({
-    Title = "Fly To Harbor",
-    Callback = function()
-        task.spawn(function()
-            SmoothFly(TARGET_1, SPEED_FLY_1)
-        end)
-    end
-})
-
-Tab:AddButton({
-    Title = "Sell",
-    Callback = function()
-        local char = player.Character or player.CharacterAdded:Wait()
-        local hrp = char:WaitForChild("HumanoidRootPart")
-
-        EnableLockVelocity(hrp)
-        EnableNoClip(char)
-
-        hrp.CFrame = TARGET_2
-
-        task.wait()
-
-        DisableLockVelocity()
-        DisableNoClip()
-        RestoreState()
-    end
-})
-
-
-Tab:AddButton({
-    Title = "Teleport To Random Server",
-    Description = "ย้ายไปเซิร์ฟเวอร์สุ่ม",
-    Callback = function()
-        TeleportRS()
-    end
-})
-
-local TabP = Window:AddTab({ Title = "Player", Icon = "crosshair" })
-
-TabP:AddToggle("Noclip", {
-    Title = "Noclip",
-    Default = false,
-    Callback = function(v)
-        noclip = v
-        local char = player.Character
-        if not char then return end
-
-        if v then
-            SaveState(char)
-            EnableNoClip(char)
-        else
+--==============================
+-- DEATH HANDLE
+--==============================
+local function BindDeath(char)
+    local hum = char:WaitForChild("Humanoid")
+    local died = false
+    hum.HealthChanged:Connect(function(hp)
+        if died then return end
+        if hp <= 0 and autoCrate then
+            died = true
+            autoCrate = false
+            waitingTeleport = false
+            UnlockVel()
             DisableNoClip()
             RestoreState()
+            setStatus("☠️ คุณตายแล้ว | กำลังย้ายเซิร์ฟ")
+            TeleportRS()
         end
-    end
-})
-
-TabP:AddToggle("ESP", {
-    Title = "Player ESP",
-    Default = false,
-    Callback = function(v)
-        ESPEnabled = v
-
-        ClearESP()
-
-        if v then
-            for _,p in ipairs(Players:GetPlayers()) do
-                if p ~= player then
-                    applyESP(p)
-                end
-            end
-        end
-    end
-})
-
-TabP:AddToggle("AimPlayer", {
-    Title = "Aimlock Player(E)",
-    Default = false,
-    Callback = function(v)
-        AimPlayerEnabled = v
-        PlayerLocking = false
-    end
-})
-
-TabP:AddToggle("AimNPC", {
-    Title = "Aimlock NPC(F)",
-    Default = false,
-    Callback = function(v)
-        AimNPCEnabled = v
-        NPCLocking = false
-    end
-})
-
---==================================================
--- CHARACTER SPAWN
---==================================================
-player.CharacterAdded:Connect(function(char)
-    noclip = false
-    flying = false
-    DisableNoClip()
-    DisableLockVelocity()
-    originalState = {}
-    removeNoclipDetector(char)
-	BindAutoCrateDeathTeleport(char)
-end)
-
-if player.Character then
-    removeNoclipDetector(player.Character)
+    end)
 end
 
-task.spawn(function()
-    while true do
-        if ESPEnabled then
-            RefreshESP()
-        end
-        task.wait(0.5)
-    end
-end)
-
-Window:SelectTab(Tab)
-
-updateAll()
-LOOT_PATH.ChildAdded:Connect(updateAll)
-LOOT_PATH.ChildRemoved:Connect(updateAll)
+BindDeath(char)
+task.spawn(AutoCrateLoop)
