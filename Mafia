@@ -432,44 +432,37 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+local teleporting = false
+local MAX_TP_RETRY = 10
+
 local function TeleportRS()
-    local HttpService = game:GetService("HttpService")
-    local TeleportService = game:GetService("TeleportService")
-    local player = game.Players.LocalPlayer
-    local PlaceId = game.PlaceId
+	if teleporting then return end
+	teleporting = true
 
-    local servers = {}
-    local cursor = nil
+	local currentJobId = game.JobId
+	local tries = 0
 
-    repeat
-        local url = "https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?limit=100"
-        if cursor then
-            url = url.."&cursor="..cursor
-        end
+	while tries < MAX_TP_RETRY do
+		tries += 1
 
-        local ok, data = pcall(function()
-            return HttpService:JSONDecode(game:HttpGet(url))
-        end)
+		local jobId = findRandomServer()
+		if jobId then
+			pcall(function()
+				TeleportService:TeleportToPlaceInstance(PlaceId, jobId, player)
+			end)
+		end
 
-        if not ok or not data or not data.data then
-            return
-        end
+		-- รอผลลัพธ์ว่ามันวาปจริงไหม
+		task.wait(4)
 
-        for _, s in ipairs(data.data) do
-            if s.id ~= game.JobId and s.playing < s.maxPlayers then
-                table.insert(servers, s.id)
-            end
-        end
+		-- ถ้า JobId เปลี่ยน = วาปสำเร็จ
+		if game.JobId ~= currentJobId then
+			return
+		end
+	end
 
-        cursor = data.nextPageCursor
-    until not cursor
-
-    if #servers > 0 then
-        local randomServerId = servers[math.random(1, #servers)]
-        TeleportService:TeleportToPlaceInstance(PlaceId, randomServerId, player)
-    else
-        TeleportService:Teleport(PlaceId, player)
-    end
+	teleporting = false
+	warn("❌ Teleport ล้มเหลว หลังจากลอง "..MAX_TP_RETRY.." ครั้ง")
 end
 
 --==================================================
