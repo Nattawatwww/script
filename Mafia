@@ -433,36 +433,31 @@ RunService.RenderStepped:Connect(function()
 end)
 
 local teleporting = false
-local MAX_TP_RETRY = 10
 
 local function TeleportRS()
-	if teleporting then return end
-	teleporting = true
+    if teleporting then return end
+    teleporting = true
+    
+    setStatus("🌐 กำลังหาเซิร์ฟเวอร์ใหม่...")
+    task.wait(1)
 
-	local currentJobId = game.JobId
-	local tries = 0
+    local success, errorMessage = pcall(function()
+        local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100")).data
+        local targetServer = servers[math.random(1, #servers)]
+        
+        if targetServer and targetServer.id ~= game.JobId then
+            TeleportService:TeleportToPlaceInstance(PlaceId, targetServer.id, player)
+        else
+            TeleportService:Teleport(PlaceId, player)
+        end
+    end)
 
-	while tries < MAX_TP_RETRY do
-		tries += 1
-
-		local jobId = findRandomServer()
-		if jobId then
-			pcall(function()
-				TeleportService:TeleportToPlaceInstance(PlaceId, jobId, player)
-			end)
-		end
-
-		-- รอผลลัพธ์ว่ามันวาปจริงไหม
-		task.wait(4)
-
-		-- ถ้า JobId เปลี่ยน = วาปสำเร็จ
-		if game.JobId ~= currentJobId then
-			return
-		end
-	end
-
-	teleporting = false
-	warn("❌ Teleport ล้มเหลว หลังจากลอง "..MAX_TP_RETRY.." ครั้ง")
+    if not success then
+        warn("Teleport Failed: " .. errorMessage)
+        task.wait(5)
+        teleporting = false
+        TeleportRS()
+    end
 end
 
 --==================================================
@@ -749,7 +744,7 @@ end
 
 Tab:AddToggle("Auto Crate", {
     Title = "Auto Farm WeaponCrate",
-    Default = false,
+    Default = true,
     Callback = function(v)
         autoCrate = v
         if v then
