@@ -9,7 +9,7 @@ local camera = workspace.CurrentCamera
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "Jood Piece [1.0]",
+    Title = "Jood Piece [1.2]",
     SubTitle = "by LuckyZ",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
@@ -33,8 +33,7 @@ local Settings = {
     Tool = nil,
     Position = "Above",
     Distance = 11,
-    Skills = { Z = false, X = false, C = false, V = false, B = false },
-    SelectedIsland = nil
+    Skills = { Z = false, X = false, C = false, V = false, B = false }
 }
 
 local IslandLocations = {
@@ -45,6 +44,12 @@ local IslandLocations = {
     ["DIO Island"] = CFrame.new(-2431.63989, 10.1308098, 492.151428),
 }
 
+local function getMonsterRoots()
+    local roots = {}
+    if workspace:FindFirstChild("Mobs") then table.insert(roots, workspace.Mobs) end
+    return roots
+end
+
 local function getHRP()
     local char = player.Character
     return char and char:FindFirstChild("HumanoidRootPart")
@@ -54,21 +59,16 @@ local function equipTool()
     if Settings.Tool and player.Character then
         if not player.Character:FindFirstChild(Settings.Tool) then
             local tool = player.Backpack:FindFirstChild(Settings.Tool)
-            if tool then 
-                tool.Parent = player.Character 
-            end
+            if tool then tool.Parent = player.Character end
         end
     end
 end
 
 local function getFarmCFrame(mobHRP)
     local d = Settings.Distance
-    if Settings.Position == "Behind" then
-        return mobHRP.CFrame * CFrame.new(0, 0, d)
-    elseif Settings.Position == "Above" then
-        return mobHRP.CFrame * CFrame.new(0, d, 0)
-    elseif Settings.Position == "Below" then
-        return mobHRP.CFrame * CFrame.new(0, -d, 0)
+    if Settings.Position == "Behind" then return mobHRP.CFrame * CFrame.new(0, 0, d)
+    elseif Settings.Position == "Above" then return mobHRP.CFrame * CFrame.new(0, d, 0)
+    elseif Settings.Position == "Below" then return mobHRP.CFrame * CFrame.new(0, -d, 0)
     end
     return mobHRP.CFrame
 end
@@ -78,50 +78,48 @@ local CurrentTarget = nil
 local function findTarget()
     if CurrentTarget and CurrentTarget.Parent and CurrentTarget:FindFirstChild("HumanoidRootPart") then
         local hum = CurrentTarget:FindFirstChildOfClass("Humanoid")
-        if hum and hum.Health > 0 then
-            return CurrentTarget, CurrentTarget.HumanoidRootPart
-        end
+        if hum and hum.Health > 0 then return CurrentTarget, CurrentTarget.HumanoidRootPart end
     end
 
-    local root = workspace:FindFirstChild("Mobs")
-    if not root then return nil end
-
+    local roots = getMonsterRoots()
     local closestMob = nil
     local shortestDist = math.huge
     local myHRP = getHRP()
     if not myHRP then return nil end
 
-    for _, mob in ipairs(root:GetDescendants()) do
-        if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
-            if Settings.Monsters[mob.Name] then
-                local hum = mob:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 then
-                    local dist = (myHRP.Position - mob.HumanoidRootPart.Position).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        closestMob = mob
+    for _, root in ipairs(roots) do
+        for _, mob in ipairs(root:GetDescendants()) do
+            if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
+                if Settings.Monsters[mob.Name] then
+                    local hum = mob:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        local dist = (myHRP.Position - mob.HumanoidRootPart.Position).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            closestMob = mob
+                        end
                     end
                 end
             end
         end
     end
-
     CurrentTarget = closestMob
     return closestMob, (closestMob and closestMob.HumanoidRootPart)
 end
 
 local function bringMonsters(mainMobHRP)
-    if not Settings.BringMob or not mainMobHRP then return end
-    local root = workspace:FindFirstChild("Mobs")
-    if not root then return end
+    if not Settings.BringMob or not mainMobHRP or not CurrentTarget then return end
+    local roots = getMonsterRoots()
 
-    for _, mob in ipairs(root:GetDescendants()) do
-        if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
-            if Settings.Monsters[mob.Name] and mob.Name == CurrentTarget.Name then
-                local hum = mob:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 and mob.HumanoidRootPart ~= mainMobHRP then
-                    mob.HumanoidRootPart.CanCollide = false
-                    mob.HumanoidRootPart.CFrame = mainMobHRP.CFrame
+    for _, root in ipairs(roots) do
+        for _, mob in ipairs(root:GetDescendants()) do
+            if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
+                if mob.Name == CurrentTarget.Name then
+                    local hum = mob:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 and mob.HumanoidRootPart ~= mainMobHRP then
+                        mob.HumanoidRootPart.CanCollide = false
+                        mob.HumanoidRootPart.CFrame = mainMobHRP.CFrame
+                    end
                 end
             end
         end
@@ -133,10 +131,7 @@ local MonsterDrop = Tabs.Main:AddDropdown("MonsterDrop", {
     Values = {"None"},
     Multi = true,
     Default = {},
-    Callback = function(v) 
-        Settings.Monsters = v 
-        CurrentTarget = nil 
-    end
+    Callback = function(v) Settings.Monsters = v; CurrentTarget = nil end
 })
 
 local ToolDrop = Tabs.Main:AddDropdown("ToolDrop", {
@@ -147,8 +142,9 @@ local ToolDrop = Tabs.Main:AddDropdown("ToolDrop", {
 
 local function RefreshList()
     local mobs, seen = {}, {}
-    local root = workspace:FindFirstChild("Mobs")
-    if root then
+    local roots = getMonsterRoots()
+    
+    for _, root in ipairs(roots) do
         for _, m in ipairs(root:GetDescendants()) do
             if m:IsA("Model") and m:FindFirstChild("HumanoidRootPart") and not seen[m.Name] then
                 seen[m.Name] = true
@@ -161,9 +157,7 @@ local function RefreshList()
     local tools = {}
     local function checkTools(container)
         for _, t in ipairs(container:GetChildren()) do
-            if t:IsA("Tool") and not table.find(tools, t.Name) then
-                table.insert(tools, t.Name)
-            end
+            if t:IsA("Tool") and not table.find(tools, t.Name) then table.insert(tools, t.Name) end
         end
     end
     checkTools(player.Backpack)
@@ -171,10 +165,7 @@ local function RefreshList()
     ToolDrop:SetValues(tools)
 end
 
-Tabs.Main:AddButton({
-    Title = "Refresh List",
-    Callback = RefreshList
-})
+Tabs.Main:AddButton({ Title = "Refresh List", Callback = RefreshList })
 
 Tabs.Main:AddDropdown("PosDrop", {
     Title = "Farm Position",
@@ -189,23 +180,9 @@ Tabs.Main:AddSlider("Dist", {
     Callback = function(v) Settings.Distance = v end
 })
 
-Tabs.Main:AddToggle("Farm", {
-    Title = "Auto Farm",
-    Default = false,
-    Callback = function(v) Settings.Enabled = v end
-})
-
-Tabs.Main:AddToggle("BringMobToggle", {
-    Title = "Bring Mob",
-    Default = true,
-    Callback = function(v) Settings.BringMob = v end
-})
-
-Tabs.Main:AddToggle("AutoSkill", {
-    Title = "Auto Skill",
-    Default = false,
-    Callback = function(v) Settings.AutoSkill = v end
-})
+Tabs.Main:AddToggle("Farm", { Title = "Auto Farm", Default = false, Callback = function(v) Settings.Enabled = v end })
+Tabs.Main:AddToggle("BringMob", { Title = "Bring Mob", Default = true, Callback = function(v) Settings.BringMob = v end })
+Tabs.Main:AddToggle("AutoSkill", { Title = "Auto Skill", Default = false, Callback = function(v) Settings.AutoSkill = v end })
 
 for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
     Tabs.Skills:AddToggle("Skill"..k, {
@@ -218,25 +195,20 @@ end
 local IslandList = {}
 for name, _ in pairs(IslandLocations) do table.insert(IslandList, name) end
 table.sort(IslandList)
-
 Tabs.Teleport:AddDropdown("IslandDrop", {
     Title = "Select Island",
     Values = IslandList,
     Callback = function(v) 
         local pos = IslandLocations[v]
         local hrp = getHRP()
-        if hrp and pos then
-            hrp.CFrame = pos
-        end
+        if hrp and pos then hrp.CFrame = pos end
     end
 })
 
 Tabs.Settings:AddToggle("Disable3D", {
     Title = "Disable 3D Rendering",
     Default = false,
-    Callback = function(v)
-        RunService:Set3dRenderingEnabled(not v)
-    end
+    Callback = function(v) RunService:Set3dRenderingEnabled(not v) end
 })
 
 -- Main Farm Loop
@@ -244,22 +216,15 @@ task.spawn(function()
     while true do
         RunService.Heartbeat:Wait()
         if not Settings.Enabled then continue end
-
         pcall(function()
             local myHRP = getHRP()
-            if not myHRP then return end
-
             local mobModel, mobHRP = findTarget()
-
             if mobModel and mobHRP then
                 equipTool()
-                
                 local targetCFrame = getFarmCFrame(mobHRP)
                 myHRP.CFrame = CFrame.lookAt(targetCFrame.Position, mobHRP.Position)
                 myHRP.Velocity = Vector3.new(0,0,0)
-
                 bringMonsters(mobHRP)
-
                 VirtualUser:CaptureController()
                 VirtualUser:ClickButton1(Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2))
             end
@@ -271,11 +236,8 @@ end)
 task.spawn(function()
     while true do
         task.wait(0.5)
-        if Settings.Enabled or Settings.AutoSkill then
+        if (Settings.Enabled or Settings.AutoSkill) then
             pcall(function()
-                if not CurrentTarget then
-                    findTarget()
-                end
                 if player.Character and CurrentTarget then
                     equipTool()
                     for key, isEnabled in pairs(Settings.Skills) do
