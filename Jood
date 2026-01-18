@@ -194,21 +194,14 @@ local IslandList = {}
 for name, _ in pairs(IslandLocations) do table.insert(IslandList, name) end
 table.sort(IslandList)
 
-local IslandDrop = Tabs.Teleport:AddDropdown("IslandDrop", {
+Tabs.Teleport:AddDropdown("IslandDrop", {
     Title = "Select Island",
     Values = IslandList,
-    Default = "Starter Island",
-    Callback = function(v) Settings.SelectedIsland = v end
-})
-
-Tabs.Teleport:AddButton({
-    Title = "Teleport to Island",
-    Callback = function()
-        if Settings.SelectedIsland and IslandLocations[Settings.SelectedIsland] then
-            local hrp = getHRP()
-            if hrp then
-                hrp.CFrame = IslandLocations[Settings.SelectedIsland]
-            end
+    Callback = function(v) 
+        local pos = IslandLocations[v]
+        local hrp = getHRP()
+        if hrp and pos then
+            hrp.CFrame = pos
         end
     end
 })
