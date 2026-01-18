@@ -23,8 +23,6 @@ local Tabs = {
     Skills = Window:AddTab({ Title = "Skills", Icon = "zap" })
 }
 
-local Options = Fluent.Options
-
 local Settings = {
     Enabled = false,
     AutoSkill = false,
@@ -101,7 +99,7 @@ local function findTarget()
 end
 
 local MonsterDrop = Tabs.Main:AddDropdown("MonsterDrop", {
-    Title = "เลือกมอนสเตอร์",
+    Title = "Select Monsters",
     Values = {"None"},
     Multi = true,
     Default = {},
@@ -112,7 +110,7 @@ local MonsterDrop = Tabs.Main:AddDropdown("MonsterDrop", {
 })
 
 local ToolDrop = Tabs.Main:AddDropdown("ToolDrop", {
-    Title = "เลือกอาวุธ",
+    Title = "Select Tool",
     Values = {"None"},
     Callback = function(v) Settings.Tool = v end
 })
@@ -138,19 +136,19 @@ local function RefreshList()
 end
 
 Tabs.Main:AddButton({
-    Title = "Refresh Monster & Tools",
+    Title = "Refresh List",
     Callback = RefreshList
 })
 
 Tabs.Main:AddDropdown("PosDrop", {
-    Title = "ตำแหน่งฟาร์ม",
+    Title = "Farm Position",
     Values = {"Behind","Above","Below"},
     Default = "Above",
     Callback = function(v) Settings.Position = v end
 })
 
 Tabs.Main:AddSlider("Dist", {
-    Title = "ระยะห่าง",
+    Title = "Distance",
     Min = 1, Max = 20, Default = 10, Rounding = 1,
     Callback = function(v) Settings.Distance = v end
 })
@@ -169,7 +167,7 @@ Tabs.Main:AddToggle("AutoSkill", {
 
 for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
     Tabs.Skills:AddToggle("Skill"..k, {
-        Title = "ใช้งาน Skill ["..k.."]",
+        Title = "Skill ["..k.."]",
         Default = false,
         Callback = function(v) Settings.Skills[k] = v end
     })
