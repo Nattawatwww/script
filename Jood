@@ -29,7 +29,7 @@ local Settings = {
     Monsters = {},
     Tool = nil,
     Position = "Above",
-    Distance = 10,
+    Distance = 11,
     Skills = { Z = false, X = false, C = false, V = false, B = false }
 }
 
@@ -149,7 +149,7 @@ Tabs.Main:AddDropdown("PosDrop", {
 
 Tabs.Main:AddSlider("Dist", {
     Title = "Distance",
-    Min = 1, Max = 25, Default = 10, Rounding = 1,
+    Min = 1, Max = 25, Default = 11, Rounding = 1,
     Callback = function(v) Settings.Distance = v end
 })
 
