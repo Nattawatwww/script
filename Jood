@@ -21,7 +21,8 @@ local Window = Fluent:CreateWindow({
 local Tabs = {
     Main = Window:AddTab({ Title = "Auto Farm", Icon = "box" }),
     Skills = Window:AddTab({ Title = "Skills", Icon = "swords" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }) -- เพิ่ม Tab Setting
+    Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
 local Settings = {
@@ -31,10 +32,17 @@ local Settings = {
     Tool = nil,
     Position = "Above",
     Distance = 11,
-    Skills = { Z = false, X = false, C = false, V = false, B = false }
+    Skills = { Z = false, X = false, C = false, V = false, B = false },
+    SelectedIsland = nil
 }
 
-local CurrentTarget = nil
+local IslandLocations = {
+    ["Starter Island"] = CFrame.new(-45.4874115, 21.7141285, 181.472717),
+    ["Beast Island"] = CFrame.new(-333.850067, 11.9821749, -2448.74438),
+    ["Cave Island"] = CFrame.new(1540.15881, 10.9430971, 929.851685),
+	["Event Island"] = CFrame.new(-1158.34314, 16.0606022, -1480.6676),
+    ["DIO Island"] = CFrame.new(-2431.63989, 10.1308098, 492.151428),
+}
 
 local function getHRP()
     local char = player.Character
@@ -63,6 +71,8 @@ local function getFarmCFrame(mobHRP)
     end
     return mobHRP.CFrame
 end
+
+local CurrentTarget = nil
 
 local function findTarget()
     if CurrentTarget and CurrentTarget.Parent and CurrentTarget:FindFirstChild("HumanoidRootPart") then
@@ -117,7 +127,6 @@ local ToolDrop = Tabs.Main:AddDropdown("ToolDrop", {
 })
 
 local function RefreshList()
-    -- Monsters
     local mobs, seen = {}, {}
     local root = workspace:FindFirstChild("Mobs")
     if root then
@@ -130,7 +139,6 @@ local function RefreshList()
     end
     MonsterDrop:SetValues(mobs)
 
-    -- Tools (Check Backpack & Character)
     local tools = {}
     local function checkTools(container)
         for _, t in ipairs(container:GetChildren()) do
@@ -182,10 +190,31 @@ for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
     })
 end
 
--- Settings Tab Content
+local IslandList = {}
+for name, _ in pairs(IslandLocations) do table.insert(IslandList, name) end
+table.sort(IslandList)
+
+local IslandDrop = Tabs.Teleport:AddDropdown("IslandDrop", {
+    Title = "Select Island",
+    Values = IslandList,
+    Default = "Starter Island",
+    Callback = function(v) Settings.SelectedIsland = v end
+})
+
+Tabs.Teleport:AddButton({
+    Title = "Teleport to Island",
+    Callback = function()
+        if Settings.SelectedIsland and IslandLocations[Settings.SelectedIsland] then
+            local hrp = getHRP()
+            if hrp then
+                hrp.CFrame = IslandLocations[Settings.SelectedIsland]
+            end
+        end
+    end
+})
+
 Tabs.Settings:AddToggle("Disable3D", {
     Title = "Disable 3D Rendering",
-    Description = "ช่วยลดความร้อนของเครื่องขณะฟาร์ม",
     Default = false,
     Callback = function(v)
         RunService:Set3dRenderingEnabled(not v)
@@ -228,7 +257,7 @@ task.spawn(function()
                     for key, isEnabled in pairs(Settings.Skills) do
                         if isEnabled then
                             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode[key], false, game)
-                            task.wait(0.05) -- กดค้างไว้แป๊บหนึ่งเพื่อให้เกมรับรู้
+                            task.wait(0.05)
                             VirtualInputManager:SendKeyEvent(false, Enum.KeyCode[key], false, game)
                         end
                     end
