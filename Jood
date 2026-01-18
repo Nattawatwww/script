@@ -9,7 +9,7 @@ local camera = workspace.CurrentCamera
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "Jood Piece",
+    Title = "Jood Piece [1.0]",
     SubTitle = "by LuckyZ",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
@@ -27,6 +27,7 @@ local Tabs = {
 
 local Settings = {
     Enabled = false,
+    BringMob = true,
     AutoSkill = false,
     Monsters = {},
     Tool = nil,
@@ -40,7 +41,7 @@ local IslandLocations = {
     ["Starter Island"] = CFrame.new(-45.4874115, 21.7141285, 181.472717),
     ["Beast Island"] = CFrame.new(-333.850067, 11.9821749, -2448.74438),
     ["Cave Island"] = CFrame.new(1540.15881, 10.9430971, 929.851685),
-	["Event Island"] = CFrame.new(-1158.34314, 16.0606022, -1480.6676),
+    ["Event Island"] = CFrame.new(-1158.34314, 16.0606022, -1480.6676),
     ["DIO Island"] = CFrame.new(-2431.63989, 10.1308098, 492.151428),
 }
 
@@ -107,6 +108,24 @@ local function findTarget()
 
     CurrentTarget = closestMob
     return closestMob, (closestMob and closestMob.HumanoidRootPart)
+end
+
+local function bringMonsters(mainMobHRP)
+    if not Settings.BringMob or not mainMobHRP then return end
+    local root = workspace:FindFirstChild("Mobs")
+    if not root then return end
+
+    for _, mob in ipairs(root:GetDescendants()) do
+        if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
+            if Settings.Monsters[mob.Name] and mob.Name == CurrentTarget.Name then
+                local hum = mob:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 and mob.HumanoidRootPart ~= mainMobHRP then
+                    mob.HumanoidRootPart.CanCollide = false
+                    mob.HumanoidRootPart.CFrame = mainMobHRP.CFrame
+                end
+            end
+        end
+    end
 end
 
 local MonsterDrop = Tabs.Main:AddDropdown("MonsterDrop", {
@@ -176,6 +195,12 @@ Tabs.Main:AddToggle("Farm", {
     Callback = function(v) Settings.Enabled = v end
 })
 
+Tabs.Main:AddToggle("BringMobToggle", {
+    Title = "Bring Mob",
+    Default = true,
+    Callback = function(v) Settings.BringMob = v end
+})
+
 Tabs.Main:AddToggle("AutoSkill", {
     Title = "Auto Skill",
     Default = false,
@@ -214,6 +239,7 @@ Tabs.Settings:AddToggle("Disable3D", {
     end
 })
 
+-- Main Farm Loop
 task.spawn(function()
     while true do
         RunService.Heartbeat:Wait()
@@ -227,8 +253,12 @@ task.spawn(function()
 
             if mobModel and mobHRP then
                 equipTool()
-                myHRP.CFrame = CFrame.lookAt(getFarmCFrame(mobHRP).Position, mobHRP.Position)
+                
+                local targetCFrame = getFarmCFrame(mobHRP)
+                myHRP.CFrame = CFrame.lookAt(targetCFrame.Position, mobHRP.Position)
                 myHRP.Velocity = Vector3.new(0,0,0)
+
+                bringMonsters(mobHRP)
 
                 VirtualUser:CaptureController()
                 VirtualUser:ClickButton1(Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2))
@@ -237,6 +267,7 @@ task.spawn(function()
     end
 end)
 
+-- Auto Skill Loop
 task.spawn(function()
     while true do
         task.wait(0.5)
