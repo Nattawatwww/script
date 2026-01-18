@@ -1,0 +1,247 @@
+--==================================================
+-- SERVICES
+--==================================================
+local Players = game:GetService("Players")
+local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+--==================================================
+-- UI (FLUENT)
+--==================================================
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+local Window = Fluent:CreateWindow({
+    Title = "Jood Piece",
+    SubTitle = "by LuckyZ",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = false, 
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.RightControl
+})
+
+local Tabs = {
+    Main = Window:AddTab({ Title = "Auto Farm", Icon = "swords" }),
+    Skills = Window:AddTab({ Title = "Skills", Icon = "zap" })
+}
+
+local Options = Fluent.Options
+
+--==================================================
+-- CONFIG
+--==================================================
+local Settings = {
+    Enabled = false,
+    AutoSkill = false,
+    Monster = nil,
+    Tool = nil,
+    Position = "Above",
+    Distance = 10,
+    Skills = { Z = false, X = false, C = false, V = false, B = false }
+}
+
+local CurrentTarget = nil
+
+--==================================================
+-- FUNCTIONS
+--==================================================
+local function getHRP()
+    local char = player.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function equipTool()
+    if Settings.Tool and player.Character then
+        if not player.Character:FindFirstChild(Settings.Tool) then
+            local tool = player.Backpack:FindFirstChild(Settings.Tool)
+            if tool then 
+                tool.Parent = player.Character 
+            end
+        end
+    end
+end
+
+local function getFarmCFrame(mobHRP)
+    local d = Settings.Distance
+    if Settings.Position == "Behind" then
+        return mobHRP.CFrame * CFrame.new(0, 0, d)
+    elseif Settings.Position == "Above" then
+        return mobHRP.CFrame * CFrame.new(0, d, 0)
+    elseif Settings.Position == "Below" then
+        return mobHRP.CFrame * CFrame.new(0, -d, 0)
+    end
+    return mobHRP.CFrame
+end
+
+local function findTarget()
+    -- เช็กเป้าหมายเดิมว่า HRP ยังอยู่ไหม
+    if CurrentTarget and CurrentTarget.Parent and CurrentTarget:FindFirstChild("HumanoidRootPart") then
+        return CurrentTarget, CurrentTarget:FindFirstChild("HumanoidRootPart")
+    end
+
+    local root = workspace:FindFirstChild("Mobs")
+    if not root then return nil end
+
+    for _, mob in ipairs(root:GetDescendants()) do
+        if mob:IsA("Model") and mob.Name == Settings.Monster then
+            local hrp = mob:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                CurrentTarget = mob
+                return mob, hrp
+            end
+        end
+    end
+    CurrentTarget = nil
+    return nil
+end
+
+--==================================================
+-- UI SETUP
+--==================================================
+
+-- [ Tab: Auto Farm ] --
+local MonsterDrop = Tabs.Main:AddDropdown("MonsterDrop", {
+    Title = "เลือกมอนสเตอร์",
+    Values = {"None"},
+    Callback = function(v) 
+        Settings.Monster = v 
+        CurrentTarget = nil 
+    end
+})
+
+local ToolDrop = Tabs.Main:AddDropdown("ToolDrop", {
+    Title = "เลือกอาวุธ",
+    Values = {"None"},
+    Callback = function(v) Settings.Tool = v end
+})
+
+local function RefreshList()
+    local mobs, seen = {}, {}
+    local root = workspace:FindFirstChild("Mobs")
+    if root then
+        for _, m in ipairs(root:GetDescendants()) do
+            -- เช็กแค่ว่ามี HRP หรือไม่
+            if m:IsA("Model") and m:FindFirstChild("HumanoidRootPart") and not seen[m.Name] then
+                seen[m.Name] = true
+                table.insert(mobs, m.Name)
+            end
+        end
+    end
+    MonsterDrop:SetValues(mobs)
+
+    local tools = {}
+    for _, t in ipairs(player.Backpack:GetChildren()) do
+        if t:IsA("Tool") then table.insert(tools, t.Name) end
+    end
+    ToolDrop:SetValues(tools)
+end
+
+Tabs.Main:AddButton({
+    Title = "Refresh Monster & Tools",
+    Description = "กดเพื่ออัปเดตรายชื่อมอนสเตอร์และอาวุธ",
+    Callback = RefreshList
+})
+
+Tabs.Main:AddDropdown("PosDrop", {
+    Title = "ตำแหน่งฟาร์ม",
+    Values = {"Behind","Above","Below"},
+    Default = "Above",
+    Callback = function(v) Settings.Position = v end
+})
+
+Tabs.Main:AddSlider("Dist", {
+    Title = "ระยะห่าง",
+    Min = 1, Max = 20, Default = 10, Rounding = 1,
+    Callback = function(v) Settings.Distance = v end
+})
+
+Tabs.Main:AddToggle("Farm", {
+    Title = "Auto Farm",
+    Default = false,
+    Callback = function(v) Settings.Enabled = v end
+})
+
+Tabs.Main:AddToggle("AutoSkill", {
+    Title = "Auto Skill",
+    Description = "บอทจะถืออาวุธและกดสกิลให้เอง",
+    Default = false,
+    Callback = function(v) Settings.AutoSkill = v end
+})
+
+-- [ Tab: Skills ] --
+Tabs.Skills:AddParagraph({
+    Title = "เลือกสกิลที่จะใช้งาน",
+    Content = "อย่าลืมเลือก 'อาวุธ' ในหน้าแรกด้วยเพื่อให้บอทถือของให้"
+})
+
+for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
+    Tabs.Skills:AddToggle("Skill"..k, {
+        Title = "ใช้งาน Skill ["..k.."]",
+        Default = false,
+        Callback = function(v) Settings.Skills[k] = v end
+    })
+end
+
+--==================================================
+-- MAIN LOOPS
+--==================================================
+
+-- Loop สำหรับ Auto Farm & Auto Click (Check HRP Only)
+task.spawn(function()
+    while true do
+        RunService.Heartbeat:Wait()
+        if not Settings.Enabled or not Settings.Monster then continue end
+
+        pcall(function()
+            local myHRP = getHRP()
+            if not myHRP then return end
+
+            local mobModel, mobHRP = findTarget()
+
+            if mobModel and mobHRP then
+                equipTool()
+                -- ลอจิกการเคลื่อนที่ (อ้างอิง HRP)
+                myHRP.CFrame = CFrame.lookAt(getFarmCFrame(mobHRP).Position, mobHRP.Position)
+                myHRP.Velocity = Vector3.new(0,0,0)
+
+                -- คลิกโจมตี
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton1(Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2))
+            end
+        end)
+    end
+end)
+
+-- Loop สำหรับ Auto Skill & Auto Equip
+task.spawn(function()
+    while true do
+        task.wait(0.3)
+        if Settings.Enabled or Settings.AutoSkill then
+            pcall(function()
+                if player.Character then
+                    equipTool()
+                    for key, isEnabled in pairs(Settings.Skills) do
+                        if isEnabled then
+                            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode[key], false, game)
+                            task.wait(0.05)
+                            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode[key], false, game)
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- กันเด้ง (Anti-AFK)
+player.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new(0,0))
+end)
+
+RefreshList()
+Window:SelectTab(1)
