@@ -19,8 +19,9 @@ local Window = Fluent:CreateWindow({
 })
 
 local Tabs = {
-    Main = Window:AddTab({ Title = "Auto Farm", Icon = "swords" }),
-    Skills = Window:AddTab({ Title = "Skills", Icon = "zap" })
+    Main = Window:AddTab({ Title = "Auto Farm", Icon = "box" }),
+    Skills = Window:AddTab({ Title = "Skills", Icon = "swords" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }) -- เพิ่ม Tab Setting
 }
 
 local Settings = {
@@ -116,6 +117,7 @@ local ToolDrop = Tabs.Main:AddDropdown("ToolDrop", {
 })
 
 local function RefreshList()
+    -- Monsters
     local mobs, seen = {}, {}
     local root = workspace:FindFirstChild("Mobs")
     if root then
@@ -128,10 +130,17 @@ local function RefreshList()
     end
     MonsterDrop:SetValues(mobs)
 
+    -- Tools (Check Backpack & Character)
     local tools = {}
-    for _, t in ipairs(player.Backpack:GetChildren()) do
-        if t:IsA("Tool") then table.insert(tools, t.Name) end
+    local function checkTools(container)
+        for _, t in ipairs(container:GetChildren()) do
+            if t:IsA("Tool") and not table.find(tools, t.Name) then
+                table.insert(tools, t.Name)
+            end
+        end
     end
+    checkTools(player.Backpack)
+    if player.Character then checkTools(player.Character) end
     ToolDrop:SetValues(tools)
 end
 
@@ -172,6 +181,16 @@ for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
         Callback = function(v) Settings.Skills[k] = v end
     })
 end
+
+-- Settings Tab Content
+Tabs.Settings:AddToggle("Disable3D", {
+    Title = "Disable 3D Rendering",
+    Description = "ช่วยลดความร้อนของเครื่องขณะฟาร์ม",
+    Default = false,
+    Callback = function(v)
+        RunService:Set3dRenderingEnabled(not v)
+    end
+})
 
 task.spawn(function()
     while true do
