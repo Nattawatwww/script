@@ -198,15 +198,18 @@ end)
 
 task.spawn(function()
     while true do
-        task.wait(0.3)
+        task.wait(0.5)
         if Settings.Enabled or Settings.AutoSkill then
             pcall(function()
+                if not CurrentTarget then
+                    findTarget()
+                end
                 if player.Character and CurrentTarget then
                     equipTool()
                     for key, isEnabled in pairs(Settings.Skills) do
                         if isEnabled then
                             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode[key], false, game)
-                            task.wait(0.05)
+                            task.wait(0.05) -- กดค้างไว้แป๊บหนึ่งเพื่อให้เกมรับรู้
                             VirtualInputManager:SendKeyEvent(false, Enum.KeyCode[key], false, game)
                         end
                     end
