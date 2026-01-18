@@ -1,6 +1,3 @@
---==================================================
--- SERVICES
---==================================================
 local Players = game:GetService("Players")
 local VirtualUser = game:GetService("VirtualUser")
 local VirtualInputManager = game:GetService("VirtualInputManager")
@@ -9,9 +6,6 @@ local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
---==================================================
--- UI (FLUENT)
---==================================================
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
 local Window = Fluent:CreateWindow({
@@ -31,13 +25,10 @@ local Tabs = {
 
 local Options = Fluent.Options
 
---==================================================
--- CONFIG
---==================================================
 local Settings = {
     Enabled = false,
     AutoSkill = false,
-    Monster = nil,
+    Monsters = {},
     Tool = nil,
     Position = "Above",
     Distance = 10,
@@ -46,9 +37,6 @@ local Settings = {
 
 local CurrentTarget = nil
 
---==================================================
--- FUNCTIONS
---==================================================
 local function getHRP()
     local char = player.Character
     return char and char:FindFirstChild("HumanoidRootPart")
@@ -78,37 +66,47 @@ local function getFarmCFrame(mobHRP)
 end
 
 local function findTarget()
-    -- เช็กเป้าหมายเดิมว่า HRP ยังอยู่ไหม
     if CurrentTarget and CurrentTarget.Parent and CurrentTarget:FindFirstChild("HumanoidRootPart") then
-        return CurrentTarget, CurrentTarget:FindFirstChild("HumanoidRootPart")
+        local hum = CurrentTarget:FindFirstChildOfClass("Humanoid")
+        if hum and hum.Health > 0 then
+            return CurrentTarget, CurrentTarget.HumanoidRootPart
+        end
     end
 
     local root = workspace:FindFirstChild("Mobs")
     if not root then return nil end
 
+    local closestMob = nil
+    local shortestDist = math.huge
+    local myHRP = getHRP()
+    if not myHRP then return nil end
+
     for _, mob in ipairs(root:GetDescendants()) do
-        if mob:IsA("Model") and mob.Name == Settings.Monster then
-            local hrp = mob:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                CurrentTarget = mob
-                return mob, hrp
+        if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
+            if Settings.Monsters[mob.Name] then
+                local hum = mob:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    local dist = (myHRP.Position - mob.HumanoidRootPart.Position).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        closestMob = mob
+                    end
+                end
             end
         end
     end
-    CurrentTarget = nil
-    return nil
+
+    CurrentTarget = closestMob
+    return closestMob, (closestMob and closestMob.HumanoidRootPart)
 end
 
---==================================================
--- UI SETUP
---==================================================
-
--- [ Tab: Auto Farm ] --
 local MonsterDrop = Tabs.Main:AddDropdown("MonsterDrop", {
     Title = "เลือกมอนสเตอร์",
     Values = {"None"},
+    Multi = true,
+    Default = {},
     Callback = function(v) 
-        Settings.Monster = v 
+        Settings.Monsters = v 
         CurrentTarget = nil 
     end
 })
@@ -124,7 +122,6 @@ local function RefreshList()
     local root = workspace:FindFirstChild("Mobs")
     if root then
         for _, m in ipairs(root:GetDescendants()) do
-            -- เช็กแค่ว่ามี HRP หรือไม่
             if m:IsA("Model") and m:FindFirstChild("HumanoidRootPart") and not seen[m.Name] then
                 seen[m.Name] = true
                 table.insert(mobs, m.Name)
@@ -142,7 +139,6 @@ end
 
 Tabs.Main:AddButton({
     Title = "Refresh Monster & Tools",
-    Description = "กดเพื่ออัปเดตรายชื่อมอนสเตอร์และอาวุธ",
     Callback = RefreshList
 })
 
@@ -167,15 +163,8 @@ Tabs.Main:AddToggle("Farm", {
 
 Tabs.Main:AddToggle("AutoSkill", {
     Title = "Auto Skill",
-    Description = "บอทจะถืออาวุธและกดสกิลให้เอง",
     Default = false,
     Callback = function(v) Settings.AutoSkill = v end
-})
-
--- [ Tab: Skills ] --
-Tabs.Skills:AddParagraph({
-    Title = "เลือกสกิลที่จะใช้งาน",
-    Content = "อย่าลืมเลือก 'อาวุธ' ในหน้าแรกด้วยเพื่อให้บอทถือของให้"
 })
 
 for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
@@ -186,15 +175,10 @@ for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
     })
 end
 
---==================================================
--- MAIN LOOPS
---==================================================
-
--- Loop สำหรับ Auto Farm & Auto Click (Check HRP Only)
 task.spawn(function()
     while true do
         RunService.Heartbeat:Wait()
-        if not Settings.Enabled or not Settings.Monster then continue end
+        if not Settings.Enabled then continue end
 
         pcall(function()
             local myHRP = getHRP()
@@ -204,11 +188,9 @@ task.spawn(function()
 
             if mobModel and mobHRP then
                 equipTool()
-                -- ลอจิกการเคลื่อนที่ (อ้างอิง HRP)
                 myHRP.CFrame = CFrame.lookAt(getFarmCFrame(mobHRP).Position, mobHRP.Position)
                 myHRP.Velocity = Vector3.new(0,0,0)
 
-                -- คลิกโจมตี
                 VirtualUser:CaptureController()
                 VirtualUser:ClickButton1(Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2))
             end
@@ -216,13 +198,12 @@ task.spawn(function()
     end
 end)
 
--- Loop สำหรับ Auto Skill & Auto Equip
 task.spawn(function()
     while true do
         task.wait(0.3)
         if Settings.Enabled or Settings.AutoSkill then
             pcall(function()
-                if player.Character then
+                if player.Character and CurrentTarget then
                     equipTool()
                     for key, isEnabled in pairs(Settings.Skills) do
                         if isEnabled then
@@ -237,7 +218,6 @@ task.spawn(function()
     end
 end)
 
--- กันเด้ง (Anti-AFK)
 player.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new(0,0))
