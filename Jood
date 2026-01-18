@@ -27,7 +27,6 @@ local Tabs = {
 
 local Settings = {
     Enabled = false,
-    BringMob = true,
     AutoSkill = false,
     Monsters = {},
     Tool = nil,
@@ -76,6 +75,7 @@ end
 local CurrentTarget = nil
 
 local function findTarget()
+    -- ตรวจสอบเป้าหมายเดิมว่ายังอยู่ไหม
     if CurrentTarget and CurrentTarget.Parent and CurrentTarget:FindFirstChild("HumanoidRootPart") then
         local hum = CurrentTarget:FindFirstChildOfClass("Humanoid")
         if hum and hum.Health > 0 then return CurrentTarget, CurrentTarget.HumanoidRootPart end
@@ -107,25 +107,7 @@ local function findTarget()
     return closestMob, (closestMob and closestMob.HumanoidRootPart)
 end
 
-local function bringMonsters(mainMobHRP)
-    if not Settings.BringMob or not mainMobHRP or not CurrentTarget then return end
-    local roots = getMonsterRoots()
-
-    for _, root in ipairs(roots) do
-        for _, mob in ipairs(root:GetDescendants()) do
-            if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
-                if mob.Name == CurrentTarget.Name then
-                    local hum = mob:FindFirstChildOfClass("Humanoid")
-                    if hum and hum.Health > 0 and mob.HumanoidRootPart ~= mainMobHRP then
-                        mob.HumanoidRootPart.CanCollide = false
-                        mob.HumanoidRootPart.CFrame = mainMobHRP.CFrame
-                    end
-                end
-            end
-        end
-    end
-end
-
+-- UI Elements
 local MonsterDrop = Tabs.Main:AddDropdown("MonsterDrop", {
     Title = "Select Monsters",
     Values = {"None"},
@@ -181,7 +163,6 @@ Tabs.Main:AddSlider("Dist", {
 })
 
 Tabs.Main:AddToggle("Farm", { Title = "Auto Farm", Default = false, Callback = function(v) Settings.Enabled = v end })
-Tabs.Main:AddToggle("BringMob", { Title = "Bring Mob", Default = true, Callback = function(v) Settings.BringMob = v end })
 Tabs.Main:AddToggle("AutoSkill", { Title = "Auto Skill", Default = false, Callback = function(v) Settings.AutoSkill = v end })
 
 for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
@@ -222,9 +203,12 @@ task.spawn(function()
             if mobModel and mobHRP then
                 equipTool()
                 local targetCFrame = getFarmCFrame(mobHRP)
+                
+                -- เคลื่อนที่ไปหาเป้าหมาย
                 myHRP.CFrame = CFrame.lookAt(targetCFrame.Position, mobHRP.Position)
                 myHRP.Velocity = Vector3.new(0,0,0)
-                bringMonsters(mobHRP)
+                
+                -- โจมตี
                 VirtualUser:CaptureController()
                 VirtualUser:ClickButton1(Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2))
             end
@@ -253,6 +237,7 @@ task.spawn(function()
     end
 end)
 
+-- Anti Idle
 player.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new(0,0))
