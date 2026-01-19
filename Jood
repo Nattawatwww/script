@@ -20,6 +20,7 @@ local Window = Fluent:CreateWindow({
 
 local Tabs = {
     Main = Window:AddTab({ Title = "Auto Farm", Icon = "box" }),
+    Auto = Window:AddTab({ Title = "Auto", Icon = "refresh-cw" }),
     Skills = Window:AddTab({ Title = "Skills", Icon = "swords" }),
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
@@ -32,7 +33,11 @@ local Settings = {
     Tool = nil,
     Position = "Above",
     Distance = 11,
-    Skills = { Z = false, X = false, C = false, V = false, B = false }
+    Skills = { Z = false, X = false, C = false, V = false, B = false },
+    SelectedCraftItem = "Heavenly Arrow",
+    AutoCraft = false,
+    SelectedStoreItem = "None",
+    AutoStore = false
 }
 
 local IslandLocations = {
@@ -40,6 +45,7 @@ local IslandLocations = {
     ["Beast Island"] = CFrame.new(-333.850067, 11.9821749, -2448.74438),
     ["Cave Island"] = CFrame.new(1540.15881, 10.9430971, 929.851685),
     ["Event Island"] = CFrame.new(-1158.34314, 16.0606022, -1480.6676),
+	["Jojo Island"] = CFrame.new(1816.94287109375, 13.832566261291504, -150.20919799804688),
     ["DIO Island"] = CFrame.new(-2431.63989, 10.1308098, 492.151428),
 }
 
@@ -75,18 +81,15 @@ end
 local CurrentTarget = nil
 
 local function findTarget()
-    -- ตรวจสอบเป้าหมายเดิมว่ายังอยู่ไหม
     if CurrentTarget and CurrentTarget.Parent and CurrentTarget:FindFirstChild("HumanoidRootPart") then
         local hum = CurrentTarget:FindFirstChildOfClass("Humanoid")
         if hum and hum.Health > 0 then return CurrentTarget, CurrentTarget.HumanoidRootPart end
     end
-
     local roots = getMonsterRoots()
     local closestMob = nil
     local shortestDist = math.huge
     local myHRP = getHRP()
     if not myHRP then return nil end
-
     for _, root in ipairs(roots) do
         for _, mob in ipairs(root:GetDescendants()) do
             if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
@@ -107,7 +110,6 @@ local function findTarget()
     return closestMob, (closestMob and closestMob.HumanoidRootPart)
 end
 
--- UI Elements
 local MonsterDrop = Tabs.Main:AddDropdown("MonsterDrop", {
     Title = "Select Monsters",
     Values = {"None"},
@@ -125,7 +127,6 @@ local ToolDrop = Tabs.Main:AddDropdown("ToolDrop", {
 local function RefreshList()
     local mobs, seen = {}, {}
     local roots = getMonsterRoots()
-    
     for _, root in ipairs(roots) do
         for _, m in ipairs(root:GetDescendants()) do
             if m:IsA("Model") and m:FindFirstChild("HumanoidRootPart") and not seen[m.Name] then
@@ -135,7 +136,6 @@ local function RefreshList()
         end
     end
     MonsterDrop:SetValues(mobs)
-
     local tools = {}
     local function checkTools(container)
         for _, t in ipairs(container:GetChildren()) do
@@ -165,6 +165,66 @@ Tabs.Main:AddSlider("Dist", {
 Tabs.Main:AddToggle("Farm", { Title = "Auto Farm", Default = false, Callback = function(v) Settings.Enabled = v end })
 Tabs.Main:AddToggle("AutoSkill", { Title = "Auto Skill", Default = false, Callback = function(v) Settings.AutoSkill = v end })
 
+local StoreDrop = Tabs.Auto:AddDropdown("StoreDrop", {
+    Title = "Select Items to Store",
+    Values = {"None"},
+    Multi = true,
+    Default = {},
+    Callback = function(v) 
+        Settings.SelectedStoreItem = v 
+    end
+})
+
+Tabs.Auto:AddButton({
+    Title = "Refresh Inventory",
+    Callback = function()
+        local items = {}
+        local function scan(c)
+            for _, t in ipairs(c:GetChildren()) do
+                if t:IsA("Tool") and not table.find(items, t.Name) then 
+                    table.insert(items, t.Name) 
+                end
+            end
+        end
+        scan(player.Backpack)
+        if player.Character then scan(player.Character) end
+        StoreDrop:SetValues(items)
+    end
+})
+
+Tabs.Auto:AddToggle("AutoStore", {
+    Title = "Auto Store",
+    Default = false,
+    Callback = function(v) Settings.AutoStore = v end
+})
+
+Tabs.Auto:AddDropdown("CraftSelect", {
+    Title = "Select Item",
+    Values = { "Heavenly Arrow", "Cid Cloak"},
+    Default = "Heavenly Arrow",
+    Callback = function(v) Settings.SelectedCraftItem = v end
+})
+
+Tabs.Auto:AddToggle("AutoCraft", {
+    Title = "Auto Craft",
+    Default = false,
+    Callback = function(v) Settings.AutoCraft = v end
+})
+
+Tabs.Auto:AddButton({
+    Title = "Craft",
+    Callback = function()
+        game:GetService("ReplicatedStorage").System.CraftItem:FireServer(Settings.SelectedCraftItem)
+    end
+})
+
+Tabs.Auto:AddButton({
+    Title = "Random Crate",
+    Callback = function()
+        game:GetService("ReplicatedStorage").System.RandomItem:FireServer(5)
+    end
+})
+
 for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
     Tabs.Skills:AddToggle("Skill"..k, {
         Title = "Skill ["..k.."]",
@@ -192,7 +252,6 @@ Tabs.Settings:AddToggle("Disable3D", {
     Callback = function(v) RunService:Set3dRenderingEnabled(not v) end
 })
 
--- Main Farm Loop
 task.spawn(function()
     while true do
         RunService.Heartbeat:Wait()
@@ -203,12 +262,8 @@ task.spawn(function()
             if mobModel and mobHRP then
                 equipTool()
                 local targetCFrame = getFarmCFrame(mobHRP)
-                
-                -- เคลื่อนที่ไปหาเป้าหมาย
                 myHRP.CFrame = CFrame.lookAt(targetCFrame.Position, mobHRP.Position)
                 myHRP.Velocity = Vector3.new(0,0,0)
-                
-                -- โจมตี
                 VirtualUser:CaptureController()
                 VirtualUser:ClickButton1(Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2))
             end
@@ -216,7 +271,6 @@ task.spawn(function()
     end
 end)
 
--- Auto Skill Loop
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -237,7 +291,35 @@ task.spawn(function()
     end
 end)
 
--- Anti Idle
+task.spawn(function()
+    while true do
+        task.wait()
+        if Settings.AutoStore and Settings.SelectedStoreItem then
+            pcall(function()
+                for itemName, enabled in pairs(Settings.SelectedStoreItem) do
+                    if enabled then
+                        local tool = player.Backpack:FindFirstChild(itemName) or player.Character:FindFirstChild(itemName)
+                        if tool then
+                            game:GetService("ReplicatedStorage").System.Inv.Inventory:InvokeServer("Add", itemName)
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait()
+        if Settings.AutoCraft then
+            pcall(function()
+                game:GetService("ReplicatedStorage").System.CraftItem:FireServer(Settings.SelectedCraftItem)
+            end)
+        end
+    end
+end)
+
 player.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new(0,0))
