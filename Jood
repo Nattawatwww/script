@@ -36,7 +36,7 @@ local Settings = {
     Skills = { Z = false, X = false, C = false, V = false, B = false },
     SelectedCraftItem = "Heavenly Arrow",
     AutoCraft = false,
-    SelectedStoreItem = "None",
+    SelectedStoreItem = {},
     AutoStore = false
 }
 
@@ -45,9 +45,11 @@ local IslandLocations = {
     ["Beast Island"] = CFrame.new(-333.850067, 11.9821749, -2448.74438),
     ["Cave Island"] = CFrame.new(1540.15881, 10.9430971, 929.851685),
     ["Event Island"] = CFrame.new(-1158.34314, 16.0606022, -1480.6676),
-	["Jojo Island"] = CFrame.new(1816.94287109375, 13.832566261291504, -150.20919799804688),
+    ["Jojo Island"] = CFrame.new(1816.94287109375, 13.832566261291504, -150.20919799804688),
     ["DIO Island"] = CFrame.new(-2431.63989, 10.1308098, 492.151428),
 }
+
+local CurrentTarget = nil
 
 local function getMonsterRoots()
     local roots = {}
@@ -78,8 +80,6 @@ local function getFarmCFrame(mobHRP)
     return mobHRP.CFrame
 end
 
-local CurrentTarget = nil
-
 local function findTarget()
     if CurrentTarget and CurrentTarget.Parent and CurrentTarget:FindFirstChild("HumanoidRootPart") then
         local hum = CurrentTarget:FindFirstChildOfClass("Humanoid")
@@ -108,6 +108,85 @@ local function findTarget()
     end
     CurrentTarget = closestMob
     return closestMob, (closestMob and closestMob.HumanoidRootPart)
+end
+
+local function AutoFarmSkillLoop()
+    while Settings.Enabled do
+        task.wait(0.5)
+        if CurrentTarget and player.Character then
+            pcall(function()
+                for key, isEnabled in pairs(Settings.Skills) do
+                    if isEnabled and Settings.Enabled then
+                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode[key], false, game)
+                        task.wait(0.05)
+                        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode[key], false, game)
+                    end
+                end
+            end)
+        end
+    end
+end
+
+local function AutoFarmLoop()
+    task.spawn(AutoFarmSkillLoop)
+    while Settings.Enabled do
+        RunService.Heartbeat:Wait()
+        pcall(function()
+            local myHRP = getHRP()
+            local mobModel, mobHRP = findTarget()
+            if mobModel and mobHRP then
+                equipTool()
+                local targetCFrame = getFarmCFrame(mobHRP)
+                myHRP.CFrame = CFrame.lookAt(targetCFrame.Position, mobHRP.Position)
+                myHRP.Velocity = Vector3.new(0,0,0)
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton1(Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2))
+            end
+        end)
+    end
+end
+
+local function StandAutoSkillLoop()
+    while Settings.AutoSkill do
+        task.wait(0.5)
+        if not Settings.Enabled then
+            pcall(function()
+                equipTool()
+                for key, isEnabled in pairs(Settings.Skills) do
+                    if isEnabled then
+                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode[key], false, game)
+                        task.wait(0.05)
+                        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode[key], false, game)
+                    end
+                end
+            end)
+        end
+    end
+end
+
+local function AutoStoreLoop()
+    while Settings.AutoStore do
+        task.wait()
+        pcall(function()
+            for itemName, enabled in pairs(Settings.SelectedStoreItem) do
+                if enabled then
+                    local tool = player.Backpack:FindFirstChild(itemName) or player.Character:FindFirstChild(itemName)
+                    if tool then
+                        game:GetService("ReplicatedStorage").System.Inv.Inventory:InvokeServer("Add", itemName)
+                    end
+                end
+            end
+        end)
+    end
+end
+
+local function AutoCraftLoop()
+    while Settings.AutoCraft do
+        task.wait()
+        pcall(function()
+            game:GetService("ReplicatedStorage").System.CraftItem:FireServer(Settings.SelectedCraftItem)
+        end)
+    end
 end
 
 local MonsterDrop = Tabs.Main:AddDropdown("MonsterDrop", {
@@ -162,17 +241,30 @@ Tabs.Main:AddSlider("Dist", {
     Callback = function(v) Settings.Distance = v end
 })
 
-Tabs.Main:AddToggle("Farm", { Title = "Auto Farm", Default = false, Callback = function(v) Settings.Enabled = v end })
-Tabs.Main:AddToggle("AutoSkill", { Title = "Auto Skill", Default = false, Callback = function(v) Settings.AutoSkill = v end })
+Tabs.Main:AddToggle("Farm", { 
+    Title = "Auto Farm", 
+    Default = false, 
+    Callback = function(v) 
+        Settings.Enabled = v 
+        if v then task.spawn(AutoFarmLoop) end
+    end 
+})
+
+Tabs.Main:AddToggle("AutoSkill", { 
+    Title = "Auto Skill", 
+    Default = false, 
+    Callback = function(v) 
+        Settings.AutoSkill = v 
+        if v then task.spawn(StandAutoSkillLoop) end
+    end 
+})
 
 local StoreDrop = Tabs.Auto:AddDropdown("StoreDrop", {
     Title = "Select Items to Store",
     Values = {"None"},
     Multi = true,
     Default = {},
-    Callback = function(v) 
-        Settings.SelectedStoreItem = v 
-    end
+    Callback = function(v) Settings.SelectedStoreItem = v end
 })
 
 Tabs.Auto:AddButton({
@@ -181,9 +273,7 @@ Tabs.Auto:AddButton({
         local items = {}
         local function scan(c)
             for _, t in ipairs(c:GetChildren()) do
-                if t:IsA("Tool") and not table.find(items, t.Name) then 
-                    table.insert(items, t.Name) 
-                end
+                if t:IsA("Tool") and not table.find(items, t.Name) then table.insert(items, t.Name) end
             end
         end
         scan(player.Backpack)
@@ -192,10 +282,13 @@ Tabs.Auto:AddButton({
     end
 })
 
-Tabs.Auto:AddToggle("AutoStore", {
-    Title = "Auto Store",
-    Default = false,
-    Callback = function(v) Settings.AutoStore = v end
+Tabs.Auto:AddToggle("AutoStore", { 
+    Title = "Auto Store", 
+    Default = false, 
+    Callback = function(v) 
+        Settings.AutoStore = v 
+        if v then task.spawn(AutoStoreLoop) end
+    end 
 })
 
 Tabs.Auto:AddDropdown("CraftSelect", {
@@ -205,25 +298,17 @@ Tabs.Auto:AddDropdown("CraftSelect", {
     Callback = function(v) Settings.SelectedCraftItem = v end
 })
 
-Tabs.Auto:AddToggle("AutoCraft", {
-    Title = "Auto Craft",
-    Default = false,
-    Callback = function(v) Settings.AutoCraft = v end
+Tabs.Auto:AddToggle("AutoCraft", { 
+    Title = "Auto Craft", 
+    Default = false, 
+    Callback = function(v) 
+        Settings.AutoCraft = v 
+        if v then task.spawn(AutoCraftLoop) end
+    end 
 })
 
-Tabs.Auto:AddButton({
-    Title = "Craft",
-    Callback = function()
-        game:GetService("ReplicatedStorage").System.CraftItem:FireServer(Settings.SelectedCraftItem)
-    end
-})
-
-Tabs.Auto:AddButton({
-    Title = "Random Crate",
-    Callback = function()
-        game:GetService("ReplicatedStorage").System.RandomItem:FireServer(5)
-    end
-})
+Tabs.Auto:AddButton({ Title = "Craft", Callback = function() game:GetService("ReplicatedStorage").System.CraftItem:FireServer(Settings.SelectedCraftItem) end })
+Tabs.Auto:AddButton({ Title = "Random Crate", Callback = function() game:GetService("ReplicatedStorage").System.RandomItem:FireServer(5) end })
 
 for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
     Tabs.Skills:AddToggle("Skill"..k, {
@@ -251,72 +336,6 @@ Tabs.Settings:AddToggle("Disable3D", {
     Default = false,
     Callback = function(v) RunService:Set3dRenderingEnabled(not v) end
 })
-
-task.spawn(function()
-    while true do
-        RunService.Heartbeat:Wait()
-        if not Settings.Enabled then continue end
-        pcall(function()
-            local myHRP = getHRP()
-            local mobModel, mobHRP = findTarget()
-            if mobModel and mobHRP then
-                equipTool()
-                local targetCFrame = getFarmCFrame(mobHRP)
-                myHRP.CFrame = CFrame.lookAt(targetCFrame.Position, mobHRP.Position)
-                myHRP.Velocity = Vector3.new(0,0,0)
-                VirtualUser:CaptureController()
-                VirtualUser:ClickButton1(Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2))
-            end
-        end)
-    end
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        if (Settings.Enabled or Settings.AutoSkill) then
-            pcall(function()
-                if player.Character and CurrentTarget then
-                    equipTool()
-                    for key, isEnabled in pairs(Settings.Skills) do
-                        if isEnabled then
-                            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode[key], false, game)
-                            task.wait(0.05)
-                            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode[key], false, game)
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
-task.spawn(function()
-    while true do
-        if Settings.AutoStore and Settings.SelectedStoreItem then
-            pcall(function()
-                for itemName, enabled in pairs(Settings.SelectedStoreItem) do
-                    if enabled then
-                        local tool = player.Backpack:FindFirstChild(itemName) or player.Character:FindFirstChild(itemName)
-                        if tool then
-                            game:GetService("ReplicatedStorage").System.Inv.Inventory:InvokeServer("Add", itemName)
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
-task.spawn(function()
-    while true do
-        if Settings.AutoCraft then
-            pcall(function()
-                game:GetService("ReplicatedStorage").System.CraftItem:FireServer(Settings.SelectedCraftItem)
-            end)
-        end
-    end
-end)
 
 player.Idled:Connect(function()
     VirtualUser:CaptureController()
