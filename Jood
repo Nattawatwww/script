@@ -293,7 +293,6 @@ end)
 
 task.spawn(function()
     while true do
-        task.wait()
         if Settings.AutoStore and Settings.SelectedStoreItem then
             pcall(function()
                 for itemName, enabled in pairs(Settings.SelectedStoreItem) do
@@ -311,7 +310,6 @@ end)
 
 task.spawn(function()
     while true do
-        task.wait()
         if Settings.AutoCraft then
             pcall(function()
                 game:GetService("ReplicatedStorage").System.CraftItem:FireServer(Settings.SelectedCraftItem)
