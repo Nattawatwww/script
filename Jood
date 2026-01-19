@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local VirtualUser = game:GetService("VirtualUser")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -166,13 +167,13 @@ end
 
 local function AutoStoreLoop()
     while Settings.AutoStore do
-        task.wait()
+        task.wait(1)
         pcall(function()
             for itemName, enabled in pairs(Settings.SelectedStoreItem) do
                 if enabled then
                     local tool = player.Backpack:FindFirstChild(itemName) or player.Character:FindFirstChild(itemName)
                     if tool then
-                        game:GetService("ReplicatedStorage").System.Inv.Inventory:InvokeServer("Add", itemName)
+                        ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", itemName)
                     end
                 end
             end
@@ -182,9 +183,9 @@ end
 
 local function AutoCraftLoop()
     while Settings.AutoCraft do
-        task.wait()
+        task.wait(0.5)
         pcall(function()
-            game:GetService("ReplicatedStorage").System.CraftItem:FireServer(Settings.SelectedCraftItem)
+            ReplicatedStorage.System.CraftItem:FireServer(Settings.SelectedCraftItem)
         end)
     end
 end
@@ -307,8 +308,24 @@ Tabs.Auto:AddToggle("AutoCraft", {
     end 
 })
 
-Tabs.Auto:AddButton({ Title = "Craft", Callback = function() game:GetService("ReplicatedStorage").System.CraftItem:FireServer(Settings.SelectedCraftItem) end })
-Tabs.Auto:AddButton({ Title = "Random Crate", Callback = function() game:GetService("ReplicatedStorage").System.RandomItem:FireServer(5) end })
+Tabs.Auto:AddButton({ Title = "Manual Craft", Callback = function() ReplicatedStorage.System.CraftItem:FireServer(Settings.SelectedCraftItem) end })
+
+Tabs.Auto:AddButton({
+    Title = "Summon Dio",
+    Callback = function()
+        for _, v in ipairs(workspace.NPC.DioNPC:GetDescendants()) do
+            if v:IsA("ClickDetector") then
+                pcall(function()
+                    ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Heavenly Arrow")
+                    task.wait(0.5)
+                    fireclickdetector(v)
+                end)
+            end
+        end
+    end
+})
+
+Tabs.Auto:AddButton({ Title = "Random Crate", Callback = function() ReplicatedStorage.System.RandomItem:FireServer(5) end })
 
 for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
     Tabs.Skills:AddToggle("Skill"..k, {
