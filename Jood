@@ -6,11 +6,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
+local dataRemote = ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent")
 
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "Jood Piece [2.0]",
+    Title = "Jood Piece [2.0] Remote Edit",
     SubTitle = "by LuckyZ",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
@@ -73,6 +74,22 @@ local function equipTool()
     end
 end
 
+local function AttackRemote(skillName)
+    local myHRP = getHRP()
+    if not myHRP then return end
+    local args = {
+        {
+            {
+                "Skill",
+                skillName,
+                myHRP.CFrame
+            },
+            "\004"
+        }
+    }
+    dataRemote:FireServer(unpack(args))
+end
+
 local function getFarmCFrame(mobHRP)
     local d = Settings.Distance
     if Settings.Position == "Behind" then return mobHRP.CFrame * CFrame.new(0, 0, d)
@@ -132,14 +149,12 @@ end
 
 local function AutoFarmSkillLoop()
     while Settings.Enabled do
-        task.wait(0.5)
+        task.wait(0.3)
         if CurrentTarget and player.Character then
             pcall(function()
                 for key, isEnabled in pairs(Settings.Skills) do
                     if isEnabled and Settings.Enabled then
-                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode[key], false, game)
-                        task.wait(0.05)
-                        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode[key], false, game)
+                        AttackRemote(key)
                     end
                 end
             end)
@@ -156,23 +171,16 @@ local function AutoFarmLoop()
             local mobModel, mobHRP = findTarget()
             if mobModel and mobHRP then
                 equipTool()
-
-                if Settings.BringMob then
-                    bringMonsters(mobHRP)
-                end
-
+                if Settings.BringMob then bringMonsters(mobHRP) end
                 local targetCFrame = getFarmCFrame(mobHRP)
                 myHRP.CFrame = CFrame.lookAt(targetCFrame.Position, mobHRP.Position)
                 myHRP.Velocity = Vector3.new(0,0,0)
-                
-                VirtualUser:CaptureController()
-                VirtualUser:ClickButton1(Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2))
+                AttackRemote("A")
             end
         end)
     end
 end
 
--- (ฟังก์ชันอื่นๆ เหมือนเดิม)
 local function StandAutoSkillLoop()
     while Settings.AutoSkill do
         task.wait(0.5)
@@ -180,11 +188,7 @@ local function StandAutoSkillLoop()
             pcall(function()
                 equipTool()
                 for key, isEnabled in pairs(Settings.Skills) do
-                    if isEnabled then
-                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode[key], false, game)
-                        task.wait(0.05)
-                        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode[key], false, game)
-                    end
+                    if isEnabled then AttackRemote(key) end
                 end
             end)
         end
@@ -198,9 +202,7 @@ local function AutoStoreLoop()
             for itemName, enabled in pairs(Settings.SelectedStoreItem) do
                 if enabled then
                     local tool = player.Backpack:FindFirstChild(itemName) or player.Character:FindFirstChild(itemName)
-                    if tool then
-                        ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", itemName)
-                    end
+                    if tool then ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", itemName) end
                 end
             end
         end)
@@ -254,142 +256,31 @@ local function RefreshList()
 end
 
 Tabs.Main:AddButton({ Title = "Refresh List", Callback = RefreshList })
+Tabs.Main:AddDropdown("PosDrop", { Title = "Farm Position", Values = {"Behind","Above","Below"}, Default = "Above", Callback = function(v) Settings.Position = v end })
+Tabs.Main:AddSlider("Dist", { Title = "Distance", Min = 1, Max = 25, Default = 11, Rounding = 1, Callback = function(v) Settings.Distance = v end })
+Tabs.Main:AddToggle("Farm", { Title = "Auto Farm (Remote)", Default = false, Callback = function(v) Settings.Enabled = v if v then task.spawn(AutoFarmLoop) end end })
+Tabs.Main:AddToggle("BringMob", { Title = "Bring Mobs", Default = false, Callback = function(v) Settings.BringMob = v end })
+Tabs.Main:AddToggle("AutoSkill", { Title = "Auto Skill", Default = false, Callback = function(v) Settings.AutoSkill = v if v then task.spawn(StandAutoSkillLoop) end end })
 
-Tabs.Main:AddDropdown("PosDrop", {
-    Title = "Farm Position",
-    Values = {"Behind","Above","Below"},
-    Default = "Above",
-    Callback = function(v) Settings.Position = v end
-})
-
-Tabs.Main:AddSlider("Dist", {
-    Title = "Distance",
-    Min = 1, Max = 25, Default = 11, Rounding = 1,
-    Callback = function(v) Settings.Distance = v end
-})
-
-Tabs.Main:AddToggle("Farm", { 
-    Title = "Auto Farm", 
-    Default = false, 
-    Callback = function(v) 
-        Settings.Enabled = v 
-        if v then task.spawn(AutoFarmLoop) end
-    end 
-})
-
-Tabs.Main:AddToggle("BringMob", {
-    Title = "Bring Mobs",
-    Default = false,
-    Callback = function(v) Settings.BringMob = v end
-})
-
-Tabs.Main:AddToggle("AutoSkill", { 
-    Title = "Auto Skill", 
-    Default = false, 
-    Callback = function(v) 
-        Settings.AutoSkill = v 
-        if v then task.spawn(StandAutoSkillLoop) end
-    end 
-})
-
-local StoreDrop = Tabs.Auto:AddDropdown("StoreDrop", {
-    Title = "Select Items to Store",
-    Values = {"None"},
-    Multi = true,
-    Default = {},
-    Callback = function(v) Settings.SelectedStoreItem = v end
-})
-
-Tabs.Auto:AddButton({
-    Title = "Refresh Inventory",
-    Callback = function()
-        local items = {}
-        local function scan(c)
-            for _, t in ipairs(c:GetChildren()) do
-                if t:IsA("Tool") and not table.find(items, t.Name) then table.insert(items, t.Name) end
-            end
-        end
-        scan(player.Backpack)
-        if player.Character then scan(player.Character) end
-        StoreDrop:SetValues(items)
-    end
-})
-
-Tabs.Auto:AddToggle("AutoStore", { 
-    Title = "Auto Store", 
-    Default = false, 
-    Callback = function(v) 
-        Settings.AutoStore = v 
-        if v then task.spawn(AutoStoreLoop) end
-    end 
-})
-
-Tabs.Auto:AddDropdown("CraftSelect", {
-    Title = "Select Item",
-    Values = { "Heavenly Arrow", "Cid Cloak"},
-    Default = "Heavenly Arrow",
-    Callback = function(v) Settings.SelectedCraftItem = v end
-})
-
-Tabs.Auto:AddToggle("AutoCraft", { 
-    Title = "Auto Craft", 
-    Default = false, 
-    Callback = function(v) 
-        Settings.AutoCraft = v 
-        if v then task.spawn(AutoCraftLoop) end
-    end 
-})
-
+local StoreDrop = Tabs.Auto:AddDropdown("StoreDrop", { Title = "Select Items to Store", Values = {"None"}, Multi = true, Default = {}, Callback = function(v) Settings.SelectedStoreItem = v end })
+Tabs.Auto:AddButton({ Title = "Refresh Inventory", Callback = function() local items = {} local function scan(c) for _, t in ipairs(c:GetChildren()) do if t:IsA("Tool") and not table.find(items, t.Name) then table.insert(items, t.Name) end end end scan(player.Backpack) if player.Character then scan(player.Character) end StoreDrop:SetValues(items) end })
+Tabs.Auto:AddToggle("AutoStore", { Title = "Auto Store", Default = false, Callback = function(v) Settings.AutoStore = v if v then task.spawn(AutoStoreLoop) end end })
+Tabs.Auto:AddDropdown("CraftSelect", { Title = "Select Item", Values = { "Heavenly Arrow", "Cid Cloak"}, Default = "Heavenly Arrow", Callback = function(v) Settings.SelectedCraftItem = v end })
+Tabs.Auto:AddToggle("AutoCraft", { Title = "Auto Craft", Default = false, Callback = function(v) Settings.AutoCraft = v if v then task.spawn(AutoCraftLoop) end end })
 Tabs.Auto:AddButton({ Title = "Manual Craft", Callback = function() ReplicatedStorage.System.CraftItem:FireServer(Settings.SelectedCraftItem) end })
-
-Tabs.Auto:AddButton({
-    Title = "Summon Dio",
-    Callback = function()
-        for _, v in ipairs(workspace.NPC.DioNPC:GetDescendants()) do
-            if v:IsA("ClickDetector") then
-                pcall(function()
-                    ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Heavenly Arrow")
-                    task.wait(0.5)
-                    fireclickdetector(v)
-                end)
-            end
-        end
-    end
-})
-
+Tabs.Auto:AddButton({ Title = "Summon Dio", Callback = function() for _, v in ipairs(workspace.NPC.DioNPC:GetDescendants()) do if v:IsA("ClickDetector") then pcall(function() ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Heavenly Arrow") task.wait(0.5) fireclickdetector(v) end) end end end })
 Tabs.Auto:AddButton({ Title = "Random Crate", Callback = function() ReplicatedStorage.System.RandomItem:FireServer(5) end })
 
 for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
-    Tabs.Skills:AddToggle("Skill"..k, {
-        Title = "Skill ["..k.."]",
-        Default = false,
-        Callback = function(v) Settings.Skills[k] = v end
-    })
+    Tabs.Skills:AddToggle("Skill"..k, { Title = "Skill ["..k.."]", Default = false, Callback = function(v) Settings.Skills[k] = v end })
 end
 
 local IslandList = {}
 for name, _ in pairs(IslandLocations) do table.insert(IslandList, name) end
 table.sort(IslandList)
-Tabs.Teleport:AddDropdown("IslandDrop", {
-    Title = "Select Island",
-    Values = IslandList,
-    Callback = function(v) 
-        local pos = IslandLocations[v]
-        local hrp = getHRP()
-        if hrp and pos then hrp.CFrame = pos end
-    end
-})
+Tabs.Teleport:AddDropdown("IslandDrop", { Title = "Select Island", Values = IslandList, Callback = function(v) local pos = IslandLocations[v] local hrp = getHRP() if hrp and pos then hrp.CFrame = pos end end })
+Tabs.Settings:AddToggle("Disable3D", { Title = "Disable 3D Rendering", Default = false, Callback = function(v) RunService:Set3dRenderingEnabled(not v) end })
 
-Tabs.Settings:AddToggle("Disable3D", {
-    Title = "Disable 3D Rendering",
-    Default = false,
-    Callback = function(v) RunService:Set3dRenderingEnabled(not v) end
-})
-
-player.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new(0,0))
-end)
-
+player.Idled:Connect(function() VirtualUser:CaptureController() VirtualUser:ClickButton2(Vector2.new(0,0)) end)
 RefreshList()
 Window:SelectTab(1)
