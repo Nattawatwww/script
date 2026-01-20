@@ -193,7 +193,7 @@ end
 
 local function AutoStoreLoop()
     while Settings.AutoStore do
-        task.wait()
+        task.wait(0.25)
         pcall(function()
             for itemName, enabled in pairs(Settings.SelectedStoreItem) do
                 if enabled then
@@ -209,7 +209,7 @@ end
 
 local function AutoCraftLoop()
     while Settings.AutoCraft do
-        task.wait()
+        task.wait(0.25)
         pcall(function()
             ReplicatedStorage.System.CraftItem:FireServer(Settings.SelectedCraftItem)
         end)
@@ -292,7 +292,6 @@ Tabs.Main:AddToggle("AutoSkill", {
     end 
 })
 
--- (แท็บอื่นๆ เหมือนเดิม)
 local StoreDrop = Tabs.Auto:AddDropdown("StoreDrop", {
     Title = "Select Items to Store",
     Values = {"None"},
