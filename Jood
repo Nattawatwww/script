@@ -29,6 +29,7 @@ local Tabs = {
 
 local Settings = {
     Enabled = false,
+    BringMob = false,
     AutoSkill = false,
     Monsters = {},
     Tool = nil,
@@ -111,6 +112,24 @@ local function findTarget()
     return closestMob, (closestMob and closestMob.HumanoidRootPart)
 end
 
+local function bringMonsters(targetHRP)
+    if not Settings.BringMob or not targetHRP then return end
+    local roots = getMonsterRoots()
+    for _, root in ipairs(roots) do
+        for _, mob in ipairs(root:GetDescendants()) do
+            if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") and mob.Name == targetHRP.Parent.Name then
+                if mob ~= targetHRP.Parent then
+                    local hum = mob:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        mob.HumanoidRootPart.CFrame = targetHRP.CFrame
+                        mob.HumanoidRootPart.CanCollide = false
+                    end
+                end
+            end
+        end
+    end
+end
+
 local function AutoFarmSkillLoop()
     while Settings.Enabled do
         task.wait(0.5)
@@ -137,9 +156,15 @@ local function AutoFarmLoop()
             local mobModel, mobHRP = findTarget()
             if mobModel and mobHRP then
                 equipTool()
+
+                if Settings.BringMob then
+                    bringMonsters(mobHRP)
+                end
+
                 local targetCFrame = getFarmCFrame(mobHRP)
                 myHRP.CFrame = CFrame.lookAt(targetCFrame.Position, mobHRP.Position)
                 myHRP.Velocity = Vector3.new(0,0,0)
+                
                 VirtualUser:CaptureController()
                 VirtualUser:ClickButton1(Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2))
             end
@@ -147,6 +172,7 @@ local function AutoFarmLoop()
     end
 end
 
+-- (ฟังก์ชันอื่นๆ เหมือนเดิม)
 local function StandAutoSkillLoop()
     while Settings.AutoSkill do
         task.wait(0.5)
@@ -251,6 +277,12 @@ Tabs.Main:AddToggle("Farm", {
     end 
 })
 
+Tabs.Main:AddToggle("BringMob", {
+    Title = "Bring Mobs",
+    Default = false,
+    Callback = function(v) Settings.BringMob = v end
+})
+
 Tabs.Main:AddToggle("AutoSkill", { 
     Title = "Auto Skill", 
     Default = false, 
@@ -260,6 +292,7 @@ Tabs.Main:AddToggle("AutoSkill", {
     end 
 })
 
+-- (แท็บอื่นๆ เหมือนเดิม)
 local StoreDrop = Tabs.Auto:AddDropdown("StoreDrop", {
     Title = "Select Items to Store",
     Values = {"None"},
