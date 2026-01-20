@@ -11,7 +11,7 @@ local dataRemote = ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("da
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "Jood Piece [2.0] Remote Edit",
+    Title = "Jood Piece [2.0]",
     SubTitle = "by LuckyZ",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
@@ -30,7 +30,6 @@ local Tabs = {
 
 local Settings = {
     Enabled = false,
-    BringMob = false,
     AutoSkill = false,
     Monsters = {},
     Tool = nil,
@@ -38,9 +37,7 @@ local Settings = {
     Distance = 11,
     Skills = { Z = false, X = false, C = false, V = false, B = false },
     SelectedCraftItem = "Heavenly Arrow",
-    AutoCraft = false,
     SelectedStoreItem = {},
-    AutoStore = false
 }
 
 local IslandLocations = {
@@ -258,7 +255,7 @@ end
 Tabs.Main:AddButton({ Title = "Refresh List", Callback = RefreshList })
 Tabs.Main:AddDropdown("PosDrop", { Title = "Farm Position", Values = {"Behind","Above","Below"}, Default = "Above", Callback = function(v) Settings.Position = v end })
 Tabs.Main:AddSlider("Dist", { Title = "Distance", Min = 1, Max = 25, Default = 11, Rounding = 1, Callback = function(v) Settings.Distance = v end })
-Tabs.Main:AddToggle("Farm", { Title = "Auto Farm (Remote)", Default = false, Callback = function(v) Settings.Enabled = v if v then task.spawn(AutoFarmLoop) end end })
+Tabs.Main:AddToggle("Farm", { Title = "Auto Farm", Default = false, Callback = function(v) Settings.Enabled = v if v then task.spawn(AutoFarmLoop) end end })
 Tabs.Main:AddToggle("BringMob", { Title = "Bring Mobs", Default = false, Callback = function(v) Settings.BringMob = v end })
 Tabs.Main:AddToggle("AutoSkill", { Title = "Auto Skill", Default = false, Callback = function(v) Settings.AutoSkill = v if v then task.spawn(StandAutoSkillLoop) end end })
 
