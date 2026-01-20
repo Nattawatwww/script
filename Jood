@@ -167,7 +167,7 @@ end
 
 local function AutoStoreLoop()
     while Settings.AutoStore do
-        task.wait(1)
+        task.wait()
         pcall(function()
             for itemName, enabled in pairs(Settings.SelectedStoreItem) do
                 if enabled then
@@ -183,7 +183,7 @@ end
 
 local function AutoCraftLoop()
     while Settings.AutoCraft do
-        task.wait(0.5)
+        task.wait()
         pcall(function()
             ReplicatedStorage.System.CraftItem:FireServer(Settings.SelectedCraftItem)
         end)
