@@ -31,6 +31,7 @@ local Tabs = {
 local Settings = {
     Enabled = false,
     AutoSkill = false,
+    AutoSummon = false,
     Monsters = {},
     Tool = nil,
     Position = "Above",
@@ -215,6 +216,67 @@ local function AutoCraftLoop()
     end
 end
 
+local function DioClickAction()
+    local dioNPC = workspace.NPC:FindFirstChild("DioNPC")
+    if dioNPC then
+        local myHRP = getHRP()
+        local char = player.Character
+        if myHRP and char then
+            -- // เพิ่มส่วนนี้: ยกเลิกการถือ Tool ทั้งหมด //
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid:UnequipTools()
+            end
+            task.wait(0.1) -- รอเล็กน้อยเพื่อให้การเก็บ Tool เสร็จสมบูรณ์
+
+            -- 1. วาร์ปไปจ่อหน้า NPC
+            myHRP.CFrame = dioNPC:GetPivot() * CFrame.new(0, 0, 1.5) 
+            task.wait(0.1)
+            
+            -- 2. หันตัวละครและกล้องไปหา NPC ให้ตรงกลางจอ
+            local npcPos = dioNPC:GetPivot().Position
+            myHRP.CFrame = CFrame.lookAt(myHRP.Position, Vector3.new(npcPos.X, myHRP.Position.Y, npcPos.Z))
+            workspace.CurrentCamera.CFrame = CFrame.lookAt(workspace.CurrentCamera.CFrame.Position, npcPos)
+            
+            task.wait(0.3)
+
+            -- 3. สั่งคลิกเมาส์ซ้ายที่กลางหน้าจอ
+            local viewportSize = workspace.CurrentCamera.ViewportSize
+            local centerX, centerY = viewportSize.X / 2, viewportSize.Y / 2
+            
+            for i = 1, 3 do
+                VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+                task.wait(0.05)
+                VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                task.wait(0.1)
+            end
+        end
+    end
+end
+
+local function AutoSummonLoop()
+    while Settings.AutoSummon do
+        task.wait(1.5)
+        pcall(function()
+            local dioExist = false
+            local mobs = workspace:FindFirstChild("Mobs")
+            if mobs and mobs:FindFirstChild("DIO Island") and mobs["DIO Island"]:FindFirstChild("DIO Overheaven") then
+                dioExist = true
+            end
+
+            if not dioExist then
+                local hasArrow = player.Backpack:FindFirstChild("Heavenly Arrow") or player.Character:FindFirstChild("Heavenly Arrow")
+
+                if not hasArrow then
+                    ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Heavenly Arrow")
+                    task.wait(0.8) 
+                end
+                DioClickAction()
+            end
+        end)
+    end
+end
+
 local MonsterDrop = Tabs.Main:AddDropdown("MonsterDrop", {
     Title = "Select Monsters",
     Values = {"None"},
@@ -258,6 +320,7 @@ Tabs.Main:AddSlider("Dist", { Title = "Distance", Min = 1, Max = 25, Default = 1
 Tabs.Main:AddToggle("Farm", { Title = "Auto Farm", Default = false, Callback = function(v) Settings.Enabled = v if v then task.spawn(AutoFarmLoop) end end })
 Tabs.Main:AddToggle("BringMob", { Title = "Bring Mobs", Default = false, Callback = function(v) Settings.BringMob = v end })
 Tabs.Main:AddToggle("AutoSkill", { Title = "Auto Skill", Default = false, Callback = function(v) Settings.AutoSkill = v if v then task.spawn(StandAutoSkillLoop) end end })
+Tabs.Main:AddToggle("AutoSummon", { Title = "Auto Summon DIO", Default = false, Callback = function(v) Settings.AutoSummon = v if v then task.spawn(AutoSummonLoop) end end })
 
 local StoreDrop = Tabs.Auto:AddDropdown("StoreDrop", { Title = "Select Items to Store", Values = {"None"}, Multi = true, Default = {}, Callback = function(v) Settings.SelectedStoreItem = v end })
 Tabs.Auto:AddButton({ Title = "Refresh Inventory", Callback = function() local items = {} local function scan(c) for _, t in ipairs(c:GetChildren()) do if t:IsA("Tool") and not table.find(items, t.Name) then table.insert(items, t.Name) end end end scan(player.Backpack) if player.Character then scan(player.Character) end StoreDrop:SetValues(items) end })
@@ -265,7 +328,6 @@ Tabs.Auto:AddToggle("AutoStore", { Title = "Auto Store", Default = false, Callba
 Tabs.Auto:AddDropdown("CraftSelect", { Title = "Select Item", Values = { "Heavenly Arrow", "Cid Cloak"}, Default = "Heavenly Arrow", Callback = function(v) Settings.SelectedCraftItem = v end })
 Tabs.Auto:AddToggle("AutoCraft", { Title = "Auto Craft", Default = false, Callback = function(v) Settings.AutoCraft = v if v then task.spawn(AutoCraftLoop) end end })
 Tabs.Auto:AddButton({ Title = "Manual Craft", Callback = function() ReplicatedStorage.System.CraftItem:FireServer(Settings.SelectedCraftItem) end })
-Tabs.Auto:AddButton({ Title = "Summon Dio", Callback = function() for _, v in ipairs(workspace.NPC.DioNPC:GetDescendants()) do if v:IsA("ClickDetector") then pcall(function() ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Heavenly Arrow") task.wait(0.5) fireclickdetector(v) end) end end end })
 Tabs.Auto:AddButton({ Title = "Random Crate", Callback = function() ReplicatedStorage.System.RandomItem:FireServer(5) end })
 
 for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
