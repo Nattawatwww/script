@@ -46,7 +46,7 @@ local IslandLocations = {
     ["Cave Island"] = CFrame.new(1540.15881, 10.9430971, 929.851685),
     ["Event Island"] = CFrame.new(-1158.34314, 16.0606022, -1480.6676),
     ["Jojo Island"] = CFrame.new(1816.94287109375, 13.832566261291504, -150.20919799804688),
-    ["DIO Island"] = CFrame.new(-2431.63989, 10.1308098, 492.151428),
+    ["DIO Island"] = CFrame.new(-2496.0341796875, 10.730810165405273, 535.1491088867188),
 }
 
 local CurrentTarget = nil
