@@ -222,34 +222,25 @@ local function DioClickAction()
         local myHRP = getHRP()
         local char = player.Character
         if myHRP and char then
-            -- // เพิ่มส่วนนี้: ยกเลิกการถือ Tool ทั้งหมด //
             local humanoid = char:FindFirstChildOfClass("Humanoid")
             if humanoid then
                 humanoid:UnequipTools()
             end
-            task.wait(0.1) -- รอเล็กน้อยเพื่อให้การเก็บ Tool เสร็จสมบูรณ์
 
-            -- 1. วาร์ปไปจ่อหน้า NPC
-            myHRP.CFrame = dioNPC:GetPivot() * CFrame.new(0, 0, 1.5) 
-            task.wait(0.1)
-            
-            -- 2. หันตัวละครและกล้องไปหา NPC ให้ตรงกลางจอ
             local npcPos = dioNPC:GetPivot().Position
+            myHRP.CFrame = dioNPC:GetPivot() * CFrame.new(0, 0, 1.8) 
+
             myHRP.CFrame = CFrame.lookAt(myHRP.Position, Vector3.new(npcPos.X, myHRP.Position.Y, npcPos.Z))
             workspace.CurrentCamera.CFrame = CFrame.lookAt(workspace.CurrentCamera.CFrame.Position, npcPos)
             
-            task.wait(0.3)
+            task.wait(0.2)
 
-            -- 3. สั่งคลิกเมาส์ซ้ายที่กลางหน้าจอ
             local viewportSize = workspace.CurrentCamera.ViewportSize
             local centerX, centerY = viewportSize.X / 2, viewportSize.Y / 2
             
-            for i = 1, 3 do
-                VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
-                task.wait(0.05)
-                VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
-                task.wait(0.1)
-            end
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0) -- กดลง
+            task.wait(0.05)
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0) -- ปล่อย
         end
     end
 end
