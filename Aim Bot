@@ -4,8 +4,7 @@ local Settings = {
     Smoothness = 0.4,
     Prediction = 0,
     AimPart = "Head", 
-    VisibleCheck = true,
-    TeamCheck = true
+    VisibleCheck = true
 }
 
 local Players = game:GetService("Players")
@@ -15,14 +14,12 @@ local Workspace = game:GetService("Workspace")
 
 local Player = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
-
 local Locking = false
 
--- สร้างวงกลม FOV
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = true
 FOVCircle.Thickness = 1
-FOVCircle.Color = Color3.fromRGB(255, 0, 0)
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
 FOVCircle.Radius = Settings.FOV
 FOVCircle.Filled = false
 FOVCircle.Transparency = 1
@@ -30,10 +27,22 @@ FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/
 
 local function IsVisible(targetPart)
     if not Settings.VisibleCheck then return true end
-    local ignoreList = {Player.Character, Camera}
-    local parts = Camera:GetPartsObscuringTarget({targetPart.Position}, ignoreList)
     
-    return #parts == 0
+    local rayOrigin = Camera.CFrame.Position
+    local rayDirection = (targetPart.Position - rayOrigin)
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {Player.Character, Camera}
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    raycastParams.IgnoreWater = true
+
+    local result = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+    
+    if result then
+        return result.Instance:IsDescendantOf(targetPart.Parent)
+    end
+    
+    return false
 end
 
 local function GetClosestToCenter()
@@ -42,21 +51,16 @@ local function GetClosestToCenter()
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
     for _, p in ipairs(Players:GetPlayers()) do
-        -- เช็ค TeamCheck (ถ้าอยู่คนละทีม หรือเกมไม่มีระบบทีม)
-        if p ~= Player and (not Settings.TeamCheck or p.Team ~= Player.Team) then
-            if p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-                local targetPart = p.Character:FindFirstChild(Settings.AimPart)
-                
-                if targetPart then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-                    
-                    if onScreen then
-                        local dist = (center - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-                        if dist < shortestDist then
-                            if IsVisible(targetPart) then
-                                closest = targetPart
-                                shortestDist = dist
-                            end
+        if p ~= Player and p.Character then
+            local targetPart = p.Character:FindFirstChild(Settings.AimPart)
+            if targetPart then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                if onScreen then
+                    local dist = (center - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                    if dist < shortestDist then
+                        if IsVisible(targetPart) then
+                            closest = targetPart
+                            shortestDist = dist
                         end
                     end
                 end
@@ -70,8 +74,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
     if not processed and input.KeyCode == Settings.Keybind then
         Locking = true
     end
-end
-)
+end)
 
 UserInputService.InputEnded:Connect(function(input)
     if input.KeyCode == Settings.Keybind then
@@ -85,11 +88,11 @@ RunService.RenderStepped:Connect(function()
     if Locking then
         local target = GetClosestToCenter()
         if target then
-            local velocity = target.AssemblyLinearVelocity
-            local predictedPosition = target.Position + (velocity * Settings.Prediction)
+            local predictionOffset = target.AssemblyLinearVelocity * Settings.Prediction
+            local aimPosition = target.Position + predictionOffset
             
-            local currentCF = Camera.CFrame
-            Camera.CFrame = currentCF:Lerp(CFrame.lookAt(currentCF.Position, predictedPosition), Settings.Smoothness)
+            local targetCF = CFrame.lookAt(Camera.CFrame.Position, aimPosition)
+            Camera.CFrame = Camera.CFrame:Lerp(targetCF, Settings.Smoothness)
         end
     end
 end)
