@@ -316,7 +316,7 @@ Tabs.Main:AddToggle("AutoSummon", { Title = "Auto Summon DIO", Default = false, 
 local StoreDrop = Tabs.Auto:AddDropdown("StoreDrop", { Title = "Select Items to Store", Values = {"None"}, Multi = true, Default = {}, Callback = function(v) Settings.SelectedStoreItem = v end })
 Tabs.Auto:AddButton({ Title = "Refresh Inventory", Callback = function() local items = {} local function scan(c) for _, t in ipairs(c:GetChildren()) do if t:IsA("Tool") and not table.find(items, t.Name) then table.insert(items, t.Name) end end end scan(player.Backpack) if player.Character then scan(player.Character) end StoreDrop:SetValues(items) end })
 Tabs.Auto:AddToggle("AutoStore", { Title = "Auto Store", Default = false, Callback = function(v) Settings.AutoStore = v if v then task.spawn(AutoStoreLoop) end end })
-Tabs.Auto:AddDropdown("CraftSelect", { Title = "Select Item", Values = { "Heavenly Arrow", "Cid Cloak"}, Default = "Heavenly Arrow", Callback = function(v) Settings.SelectedCraftItem = v end })
+Tabs.Auto:AddDropdown("CraftSelect", { Title = "Select Item", Values = { "Heavenly Arrow", "Cid Cloak", "Take Copter"}, Default = "Heavenly Arrow", Callback = function(v) Settings.SelectedCraftItem = v end })
 Tabs.Auto:AddToggle("AutoCraft", { Title = "Auto Craft", Default = false, Callback = function(v) Settings.AutoCraft = v if v then task.spawn(AutoCraftLoop) end end })
 Tabs.Auto:AddButton({ Title = "Manual Craft", Callback = function() ReplicatedStorage.System.CraftItem:FireServer(Settings.SelectedCraftItem) end })
 Tabs.Auto:AddButton({ Title = "Random Crate", Callback = function() ReplicatedStorage.System.RandomItem:FireServer(5) end })
