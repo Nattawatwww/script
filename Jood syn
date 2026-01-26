@@ -1,0 +1,46 @@
+local FIREBASE_URL = "https://jood-af2d8-default-rtdb.asia-southeast1.firebasedatabase.app/Players/" 
+local UPDATE_DELAY = 10
+
+local WHITELIST = {
+    ["Race Reroll"] = true,
+    ["Trait Reroll"] = true,
+    ["Cid Sword"] = true,
+    ["Holy Fragment"] = true
+}
+
+local player = game.Players.LocalPlayer
+local http_request = request or syn.request or http.request or (http and http.request)
+local HttpService = game:GetService("HttpService")
+
+while true do
+    pcall(function()
+        local mainGui = player:WaitForChild("PlayerGui"):FindFirstChild("MainGui")
+        local invFrame = mainGui.INVENTORY.InvFrame
+        local inventoryData = {}
+        local found = false
+
+        for _, item in pairs(invFrame:GetChildren()) do
+            if item:IsA("Frame") and WHITELIST[item.Name] then
+                local button = item:FindFirstChild("Button")
+                if button and button:FindFirstChild("Amount") then
+                    inventoryData[item.Name] = {
+                        ["Amount"] = button.Amount.Text,
+                        ["Timestamp"] = os.time()
+                    }
+                    found = true
+                end
+            end
+        end
+
+        if found then
+            http_request({
+                Url = FIREBASE_URL .. player.Name .. ".json",
+                Method = "PUT",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = HttpService:JSONEncode(inventoryData)
+            })
+            print("Data Synced: " .. player.Name)
+        end
+    end)
+    task.wait(UPDATE_DELAY)
+end
