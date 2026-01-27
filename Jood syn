@@ -5,7 +5,10 @@ local WHITELIST = {
     ["Race Reroll"] = true,
     ["Trait Reroll"] = true,
     ["Cid Sword"] = true,
-    ["Holy Fragment"] = true
+    ["Atomic Orb"] = true,
+    ["Anywhere Door"] = true,
+    ["Handcannon"] = true,
+    ["Holy Fragment"] = true,
 }
 
 local player = game.Players.LocalPlayer
