@@ -506,6 +506,24 @@ Tabs.Settings:AddButton({
     end
 })
 
+Tabs.Settings:AddToggle("AFK", {
+    Title = "AFK Mode",
+    Default = false,
+    Callback = function(v)
+        if v then
+            RunService:Set3dRenderingEnabled(false)
+            if setfpscap then
+                setfpscap(1)
+            end
+        else
+            RunService:Set3dRenderingEnabled(true)
+            if setfpscap then
+                setfpscap(180)
+            end
+        end
+    end
+})
+
 player.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new(0,0))
