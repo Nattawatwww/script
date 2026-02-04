@@ -29,6 +29,7 @@ local Tabs = {
 local Settings = {
     Enabled = false,
     AutoSkill = false,
+	AutoFlashy = false,
     AutoSummon = false,
     Monsters = {},
     Tool = nil,
@@ -220,6 +221,33 @@ local function AutoCraftLoop()
     end
 end
 
+local function AutoSummonFlashyLoop()
+    while Settings.AutoFlashy do
+        task.wait(1.5)
+        pcall(function()
+            local bossIsland = workspace:FindFirstChild("Mobs") and workspace.Mobs:FindFirstChild("Boss Island")
+            local flashyExist = bossIsland and bossIsland:FindFirstChild("Flashy Flash")
+
+            if not flashyExist then
+                local playerGui = player:FindFirstChild("PlayerGui")
+                local summonBtn = playerGui and playerGui:FindFirstChild("MainGui") 
+                    and playerGui.MainGui.SUMMON.Main:FindFirstChild("Flashy Flash")
+
+                if summonBtn and summonBtn.Visible then
+                    local pos = summonBtn.AbsolutePosition
+                    local size = summonBtn.AbsoluteSize
+                    local centerX = pos.X + (size.X / 2)
+                    local centerY = pos.Y + (size.Y / 2) + 58
+
+                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+                    task.wait(0.1)
+                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                end
+            end
+        end)
+    end
+end
+
 local function DioClickAction()
     local dioNPC = workspace.NPC:FindFirstChild("DioNPC")
     if dioNPC then
@@ -362,6 +390,17 @@ Tabs.Main:AddToggle("AutoSkill", {
         Settings.AutoSkill = v
         if v then 
             task.spawn(StandAutoSkillLoop) 
+        end
+    end
+})
+
+Tabs.Main:AddToggle("Auto Flashy", {
+    Title = "Auto Summon Flashy Flash",
+    Default = false,
+    Callback = function(v)
+        Settings.AutoFlashy = v
+        if v then
+            task.spawn(AutoSummonFlashyLoop)
         end
     end
 })
