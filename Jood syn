@@ -9,6 +9,8 @@ local WHITELIST = {
     ["Anywhere Door"] = true,
     ["Handcannon"] = true,
     ["Holy Fragment"] = true,
+	["Instakill Sword"] = true
+	["Summon Orb"] = true
 }
 
 local player = game.Players.LocalPlayer
