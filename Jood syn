@@ -10,7 +10,8 @@ local WHITELIST = {
     ["Handcannon"] = true,
     ["Holy Fragment"] = true,
 	["Instakill Sword"] = true,
-	["Summon Orb"] = true,
+	["Cures Orb"] = true,
+	["Sukuna Finger"] = true,
 }
 
 local player = game.Players.LocalPlayer
