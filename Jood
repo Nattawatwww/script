@@ -29,6 +29,7 @@ local Tabs = {
 local Settings = {
     Enabled = false,
     AutoSkill = false,
+	AutoSukunaw = false,
 	AutoFlashy = false,
     AutoSummon = false,
     Monsters = {},
@@ -221,6 +222,33 @@ local function AutoCraftLoop()
     end
 end
 
+local function AutoSummonSukunaLoop()
+    while Settings.AutoSukuna do
+        task.wait(1.5)
+        pcall(function()
+            local bossIsland = workspace:FindFirstChild("Mobs") and workspace.Mobs:FindFirstChild("Boss Island")
+            local SukunaExist = bossIsland and bossIsland:FindFirstChild("Sukuna")
+
+            if not SukunaExist then
+                local playerGui = player:FindFirstChild("PlayerGui")
+                local summonBtn = playerGui and playerGui:FindFirstChild("MainGui") 
+                    and playerGui.MainGui.SUMMON.Main:FindFirstChild("Sukuna")
+
+                if summonBtn and summonBtn.Visible then
+                    local pos = summonBtn.AbsolutePosition
+                    local size = summonBtn.AbsoluteSize
+                    local centerX = pos.X + (size.X / 2)
+                    local centerY = pos.Y + (size.Y / 2) + 58
+
+                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+                    task.wait(0.1)
+                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                end
+            end
+        end)
+    end
+end
+
 local function AutoSummonFlashyLoop()
     while Settings.AutoFlashy do
         task.wait(1.5)
@@ -390,6 +418,17 @@ Tabs.Main:AddToggle("AutoSkill", {
         Settings.AutoSkill = v
         if v then 
             task.spawn(StandAutoSkillLoop) 
+        end
+    end
+})
+
+Tabs.Main:AddToggle("Auto Sukuna", {
+    Title = "Auto Summon Sukuna",
+    Default = false,
+    Callback = function(v)
+        Settings.AutoSukuna = v
+        if v then
+            task.spawn(AutoSummonSukunaLoop)
         end
     end
 })
