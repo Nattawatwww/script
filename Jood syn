@@ -4,14 +4,15 @@ local UPDATE_DELAY = 10
 local WHITELIST = {
     ["Race Reroll"] = true,
     ["Trait Reroll"] = true,
-    ["Cid Sword"] = true,
+	["Cid Sword"] = true,
     ["Atomic Orb"] = true,
+	["Summon Orb"] = true,
+	["Cures Orb"] = true,
+	["Sukuna Finger"] = true,
     ["Anywhere Door"] = true,
     ["Handcannon"] = true,
     ["Holy Fragment"] = true,
 	["Instakill Sword"] = true,
-	["Cures Orb"] = true,
-	["Sukuna Finger"] = true,
 }
 
 local player = game.Players.LocalPlayer
