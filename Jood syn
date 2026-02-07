@@ -8,6 +8,7 @@ local WHITELIST = {
 	["Summon Orb"] = true,
 	["Curse Orb"] = true,
 	["Sukuna Finger"] = true,
+	["Red Scarf"] = true,
     ["Anywhere Door"] = true,
     ["Handcannon"] = true,
 	["Instakill Sword"] = true,
