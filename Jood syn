@@ -4,14 +4,12 @@ local UPDATE_DELAY = 10
 local WHITELIST = {
     ["Race Reroll"] = true,
     ["Trait Reroll"] = true,
-	["Cid Sword"] = true,
-    ["Atomic Orb"] = true,
+	["Holy Fragment"] = true,
 	["Summon Orb"] = true,
-	["Cures Orb"] = true,
+	["Curse Orb"] = true,
 	["Sukuna Finger"] = true,
     ["Anywhere Door"] = true,
     ["Handcannon"] = true,
-    ["Holy Fragment"] = true,
 	["Instakill Sword"] = true,
 }
 
