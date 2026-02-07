@@ -231,18 +231,25 @@ local function AutoSummonSukunaLoop()
 
             if not SukunaExist then
                 local playerGui = player:FindFirstChild("PlayerGui")
-                local summonBtn = playerGui and playerGui:FindFirstChild("MainGui") 
-                    and playerGui.MainGui.SUMMON.Main:FindFirstChild("Sukuna")
+                local summonMenu = playerGui and playerGui:FindFirstChild("MainGui") and playerGui.MainGui:FindFirstChild("SUMMON")
+                
+                if summonMenu then
+                    if summonMenu.Visible == false then 
+                        summonMenu.Visible = true
+                    end
 
-                if summonBtn and summonBtn.Visible then
-                    local pos = summonBtn.AbsolutePosition
-                    local size = summonBtn.AbsoluteSize
-                    local centerX = pos.X + (size.X / 2)
-                    local centerY = pos.Y + (size.Y / 2) + 58
+                    local summonBtn = summonMenu.Main:FindFirstChild("Sukuna")
 
-                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
-                    task.wait(0.1)
-                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                    if summonBtn and summonBtn.Visible then
+                        local pos = summonBtn.AbsolutePosition
+                        local size = summonBtn.AbsoluteSize
+                        local centerX = pos.X + (size.X / 2)
+                        local centerY = pos.Y + (size.Y / 2) + 58
+
+                        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+                        task.wait(0.1)
+                        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                    end
                 end
             end
         end)
@@ -258,18 +265,25 @@ local function AutoSummonFlashyLoop()
 
             if not flashyExist then
                 local playerGui = player:FindFirstChild("PlayerGui")
-                local summonBtn = playerGui and playerGui:FindFirstChild("MainGui") 
-                    and playerGui.MainGui.SUMMON.Main:FindFirstChild("Flashy Flash")
+                local summonMenu = playerGui and playerGui:FindFirstChild("MainGui") and playerGui.MainGui:FindFirstChild("SUMMON")
+                
+                if summonMenu then
+                    if summonMenu.Visible == false then 
+                        summonMenu.Visible = true
+                    end
 
-                if summonBtn and summonBtn.Visible then
-                    local pos = summonBtn.AbsolutePosition
-                    local size = summonBtn.AbsoluteSize
-                    local centerX = pos.X + (size.X / 2)
-                    local centerY = pos.Y + (size.Y / 2) + 58
+                    local summonBtn = summonMenu.Main:FindFirstChild("Flashy Flash")
 
-                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
-                    task.wait(0.1)
-                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                    if summonBtn and summonBtn.Visible then
+                        local pos = summonBtn.AbsolutePosition
+                        local size = summonBtn.AbsoluteSize
+                        local centerX = pos.X + (size.X / 2)
+                        local centerY = pos.Y + (size.Y / 2) + 58
+
+                        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+                        task.wait(0.1)
+                        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                    end
                 end
             end
         end)
