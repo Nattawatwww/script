@@ -37,7 +37,7 @@ local Settings = {
     Position = "Above",
     Distance = 11,
     Skills = { Z = false, X = false, C = false, V = false, B = false },
-    SelectedCraftItem = "Heavenly Arrow",
+    SelectedCraftItem = "Sukuna Core",
     SelectedStoreItem = {},
 }
 
@@ -521,8 +521,8 @@ Tabs.Auto:AddToggle("AutoStore", {
 
 Tabs.Auto:AddDropdown("CraftSelect", {
     Title = "Select Item",
-    Values = { "Heavenly Arrow", "Cid Cloak", "Take Copter"},
-    Default = "Heavenly Arrow",
+    Values = { "Sukuna Core", "Haki Book", "Take Copter"},
+    Default = "Sukuna Core",
     Callback = function(v)
         Settings.SelectedCraftItem = v
     end
@@ -617,7 +617,7 @@ Tabs.Settings:AddToggle("AFK", {
         if v then
             RunService:Set3dRenderingEnabled(false)
             if setfpscap then
-                setfpscap(20)
+                setfpscap(30)
             end
         else
             RunService:Set3dRenderingEnabled(true)
