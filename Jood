@@ -200,19 +200,29 @@ local function StandAutoSkillLoop()
 end
 
 local function AutoStoreLoop()
-    while Settings.AutoStore do
-        task.wait(0.25)
+    if Settings.AutoStore then
         pcall(function()
-            for itemName, enabled in pairs(Settings.SelectedStoreItem) do
-                if enabled then
-                    local tool = player.Backpack:FindFirstChild(itemName) or player.Character:FindFirstChild(itemName)
-                    if tool then
-                        ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", itemName)
-                    end
+            for _, tool in pairs(player.Backpack:GetChildren()) do
+                if tool:IsA("Tool") and Settings.SelectedStoreItem[tool.Name] then
+                    ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", tool.Name)
+                    task.wait(0.1)
                 end
             end
         end)
     end
+
+    local connection
+    connection = player.Backpack.ChildAdded:Connect(function(tool)
+        if not Settings.AutoStore then
+            if connection then connection:Disconnect() end
+            return
+        end
+
+        if tool:IsA("Tool") and Settings.SelectedStoreItem[tool.Name] then
+            task.wait(0.1)
+            ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", tool.Name)
+        end
+    end)
 end
 
 local function AutoCraftLoop()
