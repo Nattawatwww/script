@@ -230,13 +230,29 @@ local function AutoStoreLoop()
 end
 
 
-local function AutoCraftLoop()
-    while Settings.AutoCraft do
-        task.wait(0.25)
-        pcall(function()
-            ReplicatedStorage.System.CraftItem:FireServer(Settings.SelectedCraftItem)
-        end)
-    end
+local lastFire = 0
+local craftcooldown = 0.1
+
+local connection
+
+local function StartAutoCraft()
+    if connection then connection:Disconnect() end
+
+    connection = RunService.Heartbeat:Connect(function()
+        if not Settings.AutoCraft then
+            connection:Disconnect()
+            connection = nil
+            return
+        end
+
+        local now = os.clock()
+        if now - lastFire >= craftcooldown then
+            lastFire = now
+            pcall(function()
+                ReplicatedStorage.System.CraftItem:FireServer(Settings.SelectedCraftItem)
+            end)
+        end
+    end)
 end
 
 local function AutoSummonSukunaLoop()
