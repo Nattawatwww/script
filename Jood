@@ -156,20 +156,26 @@ local function bringMonsters(targetHRP)
     end
 end
 
+local skillLoopRunning = false
+
 local function AutoFarmSkillLoop()
+    if skillLoopRunning then return end
+    skillLoopRunning = true
+
     while Settings.Enabled do
         task.wait(0.3)
         if CurrentTarget and player.Character then
-            pcall(function()
-                for key, isEnabled in pairs(Settings.Skills) do
-                    if isEnabled and Settings.Enabled then
-                        AttackRemote(key)
-                    end
+            for key, isEnabled in pairs(Settings.Skills) do
+                if isEnabled and Settings.Enabled then
+                    AttackRemote(key)
                 end
-            end)
+            end
         end
     end
+
+    skillLoopRunning = false
 end
+
 
 local function AutoFarmLoop()
     task.spawn(AutoFarmSkillLoop)
@@ -659,7 +665,7 @@ Tabs.Settings:AddToggle("AFK", {
         if v then
             RunService:Set3dRenderingEnabled(false)
             if setfpscap then
-                setfpscap(30)
+                setfpscap(20)
             end
         else
             RunService:Set3dRenderingEnabled(true)
