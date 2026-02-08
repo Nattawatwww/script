@@ -7,6 +7,14 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local dataRemote = ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent")
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local storeconn
+local craftconn
+local randomConn
+
+local lastFire = 0
+local craftcooldown = 0.1
+local rabdomcooldown = 0.1
+
 
 local Window = Fluent:CreateWindow({
     Title = "Jood Piece [2.0]",
@@ -199,8 +207,6 @@ local function StandAutoSkillLoop()
     end
 end
 
-local connection
-
 local function StoreTool(tool)
     if tool:IsA("Tool") and Settings.SelectedStoreItem[tool.Name] then
         task.wait(0.1)
@@ -210,9 +216,9 @@ end
 
 local function AutoStoreLoop()
     if not Settings.AutoStore then
-        if connection then
-            connection:Disconnect()
-            connection = nil
+        if storeconn then
+            storeconn:Disconnect()
+            storeconn = nil
         end
         return
     end
@@ -221,27 +227,21 @@ local function AutoStoreLoop()
         StoreTool(tool)
     end
 
-    if connection then connection:Disconnect() end
+    if storeconn then storeconn:Disconnect() end
 
-    connection = player.Backpack.ChildAdded:Connect(function(tool)
+    storeconn = player.Backpack.ChildAdded:Connect(function(tool)
         if not Settings.AutoStore then return end
         StoreTool(tool)
     end)
 end
 
-
-local lastFire = 0
-local craftcooldown = 0.1
-
-local connection
-
 local function StartAutoCraft()
-    if connection then connection:Disconnect() end
+    if craftconn then conn:Disconnect() end
 
-    connection = RunService.Heartbeat:Connect(function()
+    craftconn = RunService.Heartbeat:Connect(function()
         if not Settings.AutoCraft then
-            connection:Disconnect()
-            connection = nil
+            craftconn:Disconnect()
+            craftconn = nil
             return
         end
 
@@ -567,14 +567,33 @@ Tabs.Auto:AddButton({
     end
 })
 
-Tabs.Auto:AddButton({
+Tabs.Auto:AddToggle({
     Title = "Random Crate",
-    Callback = function()
-        ReplicatedStorage.System.RandomItem:FireServer(5)
+    Default = false,
+    Callback = function(state)
+
+        if not state then
+            if randomConn then
+                randomConn:Disconnect()
+                randomConn = nil
+            end
+            return
+        end
+
+        if randomConn then randomConn:Disconnect() end
+
+        randomConn = RunService.Heartbeat:Connect(function()
+            local now = os.clock()
+            if now - lastFire >= rabdomcooldown then
+                lastFire = now
+                pcall(function()
+                    ReplicatedStorage.System.RandomItem:FireServer(5)
+                end)
+            end
+        end)
     end
 })
 
--- Tabs: Skills
 for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
     Tabs.Skills:AddToggle("Skill"..k, {
         Title = "Skill ["..k.."]",
