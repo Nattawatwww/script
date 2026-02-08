@@ -11,9 +11,10 @@ local storeconn
 local craftconn
 local randomConn
 
-local lastFire = 0
+local lastCraftFire = 0
+local lastRandomFire = 0
 local craftcooldown = 0.1
-local rabdomcooldown = 0.1
+local randomcooldown = 0.1
 
 
 local Window = Fluent:CreateWindow({
@@ -235,8 +236,8 @@ local function AutoStoreLoop()
     end)
 end
 
-local function StartAutoCraft()
-    if craftconn then conn:Disconnect() end
+local function AutoCraftLoop()
+    if craftconn then craftconn:Disconnect() end
 
     craftconn = RunService.Heartbeat:Connect(function()
         if not Settings.AutoCraft then
@@ -246,8 +247,8 @@ local function StartAutoCraft()
         end
 
         local now = os.clock()
-        if now - lastFire >= craftcooldown then
-            lastFire = now
+        if now - lastCraftFire >= craftcooldown then
+            lastCraftFire = now
             pcall(function()
                 ReplicatedStorage.System.CraftItem:FireServer(Settings.SelectedCraftItem)
             end)
@@ -584,8 +585,8 @@ Tabs.Auto:AddToggle({
 
         randomConn = RunService.Heartbeat:Connect(function()
             local now = os.clock()
-            if now - lastFire >= rabdomcooldown then
-                lastFire = now
+            if now - lastRandomFire >= randomcooldown then
+                lastRandomFire = now
                 pcall(function()
                     ReplicatedStorage.System.RandomItem:FireServer(5)
                 end)
