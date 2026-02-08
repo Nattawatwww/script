@@ -568,7 +568,7 @@ Tabs.Auto:AddButton({
     end
 })
 
-Tabs.Auto:AddToggle({
+Tabs.Auto:AddToggle("RandomCrate", {
     Title = "Random Crate",
     Default = false,
     Callback = function(state)
@@ -594,6 +594,7 @@ Tabs.Auto:AddToggle({
         end)
     end
 })
+
 
 for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
     Tabs.Skills:AddToggle("Skill"..k, {
