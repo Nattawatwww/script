@@ -307,17 +307,23 @@ local function AutoRaid()
         if not hrp then return end
 
         hrp.CFrame = CFrame.new(205.836639, 29.078067, 500.664794)
-        task.wait(0.6)
+        task.wait(0.3)
 
         ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Raid Ticket")
-        task.wait(0.5)
 
         local raidSummon = workspace:FindFirstChild("RaidSummon")
         if raidSummon and raidSummon:FindFirstChild("Epart") then
-            local prompt = raidSummon.Epart:FindFirstChildOfClass("ProximityPrompt")
+            local epart = raidSummon.Epart
+            local prompt = epart:FindFirstChildOfClass("ProximityPrompt")
+            
             if prompt then
+                local targetPos = epart.Position
+                hrp.CFrame = CFrame.lookAt(hrp.Position, Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z))
+                workspace.CurrentCamera.CFrame = CFrame.lookAt(workspace.CurrentCamera.CFrame.Position, targetPos)
+                
+                task.wait(0.1)
+
                 fireproximityprompt(prompt)
-                task.wait(0.5)
             end
         end
 
