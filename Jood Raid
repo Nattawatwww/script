@@ -8,7 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
-local SettingsRaid = {
+local Settings = {
     Enabled = false,
     Tool = "Cid Kagenou",
     Distance = 10,
@@ -24,6 +24,7 @@ local SettingsRaid = {
     }
 }
 
+-- ฟังก์ชันสำหรับคลิกปุ่ม
 local function clickGuiButton(buttonPath)
     if buttonPath and buttonPath:IsA("GuiButton") then
         local pos = buttonPath.AbsolutePosition
@@ -49,7 +50,7 @@ local function getHRP()
 end
 
 local function monsterAllowed(name)
-    for _, v in ipairs(SettingsRaid.Monsters) do
+    for _, v in ipairs(Settings.Monsters) do
         if name:find(v) then return true end
     end
     return false
@@ -57,16 +58,16 @@ end
 
 local function equipTool()
     local char = player.Character
-    if not char or char:FindFirstChild(SettingsRaid.Tool) then return end
-    local tool = player.Backpack:FindFirstChild(SettingsRaid.Tool)
+    if not char or char:FindFirstChild(Settings.Tool) then return end
+    local tool = player.Backpack:FindFirstChild(Settings.Tool)
     if tool then tool.Parent = char end
 end
 
 local function getFarmCFrame(mobHRP)
-    local d = SettingsRaid.Distance
-    if SettingsRaid.Position == "Behind" then
+    local d = Settings.Distance
+    if Settings.Position == "Behind" then
         return mobHRP.CFrame * CFrame.new(0, 0, d)
-    elseif SettingsRaid.Position == "Below" then
+    elseif Settings.Position == "Below" then
         return mobHRP.CFrame * CFrame.new(0, -d, 0)
     else
         return mobHRP.CFrame * CFrame.new(0, d, 0)
@@ -77,7 +78,7 @@ local function findTarget()
     local myHRP = getHRP()
     if not myHRP then return nil end
     local closest, shortest = nil, math.huge
-    local targetFolders = {workspace:FindFirstChild("Mobs"), workspace:FindFirstChild("Mobs")}
+    local targetFolders = {workspace:FindFirstChild("Mobs"), workspace:FindFirstChild("Mob")}
     
     for _, folder in ipairs(targetFolders) do
         if folder then
@@ -99,12 +100,9 @@ local function findTarget()
 end
 
 local function clickAttack()
-    local viewport = camera.ViewportSize
-    local x = viewport.X - 50
-    local y = viewport.Y - 50
-
+    local x, y = camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2
     VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
-    task.wait()
+    task.wait(0.05)
     VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
 end
 
@@ -114,40 +112,47 @@ local function pressKey(key)
     VirtualInputManager:SendKeyEvent(false, key, false, game)
 end
 
-local function storeItem(item)
-    if not InitialItems[item.Name] and item.Name ~= SettingsRaid.Tool then
+local function isEndVisible()
+    local raidGui = player.PlayerGui:FindFirstChild("Raid")
+    if raidGui then
+        local endButton = raidGui:FindFirstChild("End")
+        if endButton and endButton.Visible then
+            return true
+        end
+    end
+    return false
+end
+
+task.spawn(function()
+    local raidGui = player:WaitForChild("PlayerGui"):WaitForChild("Raid")
+    local startBtn = raidGui:WaitForChild("Start")
+    local autoSkipBtn = raidGui:WaitForChild("AutoSkip")
+    
+    clickGuiButton(startBtn)
+    task.wait(0.5)
+    clickGuiButton(autoSkipBtn)
+    
+    Settings.Enabled = true
+end)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Enum.KeyCode.T then
+        Settings.Enabled = not Settings.Enabled
+    end
+end)
+
+player.Backpack.ChildAdded:Connect(function(item)
+    if not InitialItems[item.Name] and item.Name ~= Settings.Tool then
         task.wait(0.5)
         pcall(function()
             ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", item.Name)
         end)
     end
-end
-
-task.spawn(function()
-    local raidGui = player:WaitForChild("PlayerGui"):WaitForChild("Raid")
-
-    local startBtn = raidGui:WaitForChild("Start")
-    clickGuiButton(startBtn)
-
-    task.wait(0.5)
-    
-    local autoSkipBtn = raidGui:WaitForChild("AutoSkip")
-    clickGuiButton(autoSkipBtn)
-    
-    SettingsRaid.Enabled = true
 end)
-
-UserInputService.InputBegan:Connect(function(input, processed)
-    if not processed and input.KeyCode == Enum.KeyCode.T then
-        SettingsRaid.Enabled = not SettingsRaid.Enabled
-    end
-end)
-
-player.Backpack.ChildAdded:Connect(storeItem)
 
 task.spawn(function()
     while true do
-        if SettingsRaid.Enabled and getHRP() then 
+        if Settings.Enabled and not isEndVisible() and getHRP() then 
             pressKey(Enum.KeyCode.X) 
         end
         task.wait(1)
@@ -155,7 +160,10 @@ task.spawn(function()
 end)
 
 RunService.Heartbeat:Connect(function()
-    if not SettingsRaid.Enabled then return end
+    if not Settings.Enabled or isEndVisible() then 
+	    task.wait(15)
+        return 
+    end
     
     local myHRP = getHRP()
     if not myHRP then return end
