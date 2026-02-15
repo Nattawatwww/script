@@ -28,7 +28,8 @@ local Window = Fluent:CreateWindow({
 })
 
 local Tabs = {
-    Main = Window:AddTab({ Title = "Auto Farm", Icon = "box" }),
+    Main = Window:AddTab({ Title = "Main", Icon = "box" }),
+	Farm = Window:AddTab({ Title = "Farm", Icon = "box" }),
     Auto = Window:AddTab({ Title = "Auto", Icon = "refresh-cw" }),
     Skills = Window:AddTab({ Title = "Skills", Icon = "swords" }),
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
@@ -38,6 +39,7 @@ local Tabs = {
 local Settings = {
     Enabled = false,
     AutoSkill = false,
+	AutoRaid = false,
 	AutoSukunaw = false,
 	AutoFlashy = false,
     AutoSummon = false,
@@ -156,6 +158,23 @@ local function bringMonsters(targetHRP)
     end
 end
 
+local function clickAttack()
+    local x, y = camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
+    task.wait()
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+end
+
+local function PressKey(key)
+    local keycode = Enum.KeyCode[key]
+
+    if keycode then
+        VirtualInputManager:SendKeyEvent(true, keycode, false, game)
+        task.wait()
+        VirtualInputManager:SendKeyEvent(false, keycode, false, game)
+    end
+end
+
 local skillLoopRunning = false
 
 local function AutoFarmSkillLoop()
@@ -167,7 +186,7 @@ local function AutoFarmSkillLoop()
         if CurrentTarget and player.Character then
             for key, isEnabled in pairs(Settings.Skills) do
                 if isEnabled and Settings.Enabled then
-                    AttackRemote(key)
+                    PressKey(key)
                 end
             end
         end
@@ -175,7 +194,6 @@ local function AutoFarmSkillLoop()
 
     skillLoopRunning = false
 end
-
 
 local function AutoFarmLoop()
     task.spawn(AutoFarmSkillLoop)
@@ -192,7 +210,7 @@ local function AutoFarmLoop()
                 local targetCFrame = getFarmCFrame(mobHRP)
                 myHRP.CFrame = CFrame.lookAt(targetCFrame.Position, mobHRP.Position)
                 myHRP.Velocity = Vector3.new(0,0,0)
-                AttackRemote("A")
+                clickAttack()
             end
         end)
     end
@@ -206,12 +224,33 @@ local function StandAutoSkillLoop()
                 equipTool()
                 for key, isEnabled in pairs(Settings.Skills) do
                     if isEnabled then
-                        AttackRemote(key)
+                        PressKey(key)
                     end
                 end
             end)
         end
     end
+end
+
+local clicking = false
+local clickLoop
+
+local function realClick()
+    local viewport = camera.ViewportSize
+    local x = viewport.X / 2
+    local y = viewport.Y / 2
+
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
+    task.wait()
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+end
+
+local function teleportToKirito()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+
+    local kiritoPart = workspace:WaitForChild("KiritoClick"):WaitForChild("KiritoClick1")
+    hrp.CFrame = kiritoPart:GetPivot() * CFrame.new(0,0,3)
 end
 
 local function StoreTool(tool)
@@ -258,6 +297,33 @@ local function AutoCraftLoop()
             pcall(function()
                 ReplicatedStorage.System.CraftItem:FireServer(Settings.SelectedCraftItem)
             end)
+        end
+    end)
+end
+
+local function AutoRaid()
+    pcall(function()
+        local hrp = getHRP()
+        if not hrp then return end
+
+        hrp.CFrame = CFrame.new(205.836639, 29.078067, 500.664794)
+        task.wait(0.6)
+
+        ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Raid Ticket")
+        task.wait(0.5)
+
+        local raidSummon = workspace:FindFirstChild("RaidSummon")
+        if raidSummon and raidSummon:FindFirstChild("Epart") then
+            local prompt = raidSummon.Epart:FindFirstChildOfClass("ProximityPrompt")
+            if prompt then
+                fireproximityprompt(prompt)
+                task.wait(0.5)
+            end
+        end
+
+        local raidPath = workspace:FindFirstChild("RaidPath")
+        if raidPath then
+            hrp.CFrame = raidPath:GetPivot()
         end
     end)
 end
@@ -476,7 +542,26 @@ Tabs.Main:AddToggle("AutoSkill", {
     end
 })
 
-Tabs.Main:AddToggle("Auto Sukuna", {
+Tabs.Farm:AddToggle("AutoKiritoClick", {
+    Title = "Auto Kirito",
+    Default = false,
+    Callback = function(state)
+        clicking = state
+
+        if clicking then
+            teleportToKirito()
+
+            clickLoop = task.spawn(function()
+                while clicking do
+                    realClick()
+                    task.wait()
+                end
+            end)
+        end
+    end
+})
+
+Tabs.Farm:AddToggle("Auto Sukuna", {
     Title = "Auto Summon Sukuna",
     Default = false,
     Callback = function(v)
@@ -487,7 +572,7 @@ Tabs.Main:AddToggle("Auto Sukuna", {
     end
 })
 
-Tabs.Main:AddToggle("Auto Flashy", {
+Tabs.Farm:AddToggle("Auto Flashy", {
     Title = "Auto Summon Flashy Flash",
     Default = false,
     Callback = function(v)
@@ -498,13 +583,24 @@ Tabs.Main:AddToggle("Auto Flashy", {
     end
 })
 
-Tabs.Main:AddToggle("AutoSummon", {
+Tabs.Farm:AddToggle("AutoSummon", {
     Title = "Auto Summon DIO",
     Default = false,
     Callback = function(v)
         Settings.AutoSummon = v
         if v then 
             task.spawn(AutoSummonLoop) 
+        end
+    end
+})
+
+Tabs.Farm:AddToggle("AutoRaid", {
+    Title = "Auto Raid",
+    Default = false,
+    Callback = function(v)
+        Settings.AutoRaid = v
+        if v then
+            AutoRaid()
         end
     end
 })
