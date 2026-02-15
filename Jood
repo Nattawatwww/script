@@ -323,7 +323,8 @@ local function AutoRaid()
                 
                 task.wait(0.1)
 
-                fireproximityprompt(prompt)
+                fireproximityprompt(prompt)              
+				task.wait(0.3)
             end
         end
 
