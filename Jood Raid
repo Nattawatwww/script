@@ -1,0 +1,177 @@
+local Players = game:GetService("Players")
+local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local SettingsRaid = {
+    Enabled = false,
+    Tool = "Cid Kagenou",
+    Distance = 10,
+    Position = "Above",
+    Monsters = {
+        "Sukuna",
+        "Speed Zombie",
+        "Zombie",
+        "Skeleton",
+        "Chicken",
+        "Flashy Flash",
+        "Kirito"
+    }
+}
+
+local function clickGuiButton(buttonPath)
+    if buttonPath and buttonPath:IsA("GuiButton") then
+        local pos = buttonPath.AbsolutePosition
+        local size = buttonPath.AbsoluteSize
+        local centerX = pos.X + (size.X / 2)
+        local centerY = pos.Y + (size.Y / 2) + 58
+        
+        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+        task.wait(0.05)
+        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+        return true
+    end
+    return false
+end
+
+local InitialItems = {}
+for _, item in ipairs(player.Backpack:GetChildren()) do
+    InitialItems[item.Name] = true
+end
+
+local function getHRP()
+    return player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+end
+
+local function monsterAllowed(name)
+    for _, v in ipairs(SettingsRaid.Monsters) do
+        if name:find(v) then return true end
+    end
+    return false
+end
+
+local function equipTool()
+    local char = player.Character
+    if not char or char:FindFirstChild(SettingsRaid.Tool) then return end
+    local tool = player.Backpack:FindFirstChild(SettingsRaid.Tool)
+    if tool then tool.Parent = char end
+end
+
+local function getFarmCFrame(mobHRP)
+    local d = SettingsRaid.Distance
+    if SettingsRaid.Position == "Behind" then
+        return mobHRP.CFrame * CFrame.new(0, 0, d)
+    elseif SettingsRaid.Position == "Below" then
+        return mobHRP.CFrame * CFrame.new(0, -d, 0)
+    else
+        return mobHRP.CFrame * CFrame.new(0, d, 0)
+    end
+end
+
+local function findTarget()
+    local myHRP = getHRP()
+    if not myHRP then return nil end
+    local closest, shortest = nil, math.huge
+    local targetFolders = {workspace:FindFirstChild("Mobs"), workspace:FindFirstChild("Mobs")}
+    
+    for _, folder in ipairs(targetFolders) do
+        if folder then
+            for _, mob in ipairs(folder:GetDescendants()) do
+                if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
+                    local hum = mob:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 and monsterAllowed(mob.Name) then
+                        local dist = (myHRP.Position - mob.HumanoidRootPart.Position).Magnitude
+                        if dist < shortest then
+                            shortest = dist
+                            closest = mob
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closest, closest and closest.HumanoidRootPart
+end
+
+local function clickAttack()
+    local viewport = camera.ViewportSize
+    local x = viewport.X - 50
+    local y = viewport.Y - 50
+
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
+    task.wait()
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+end
+
+local function pressKey(key)
+    VirtualInputManager:SendKeyEvent(true, key, false, game)
+    task.wait(0.05)
+    VirtualInputManager:SendKeyEvent(false, key, false, game)
+end
+
+local function storeItem(item)
+    if not InitialItems[item.Name] and item.Name ~= SettingsRaid.Tool then
+        task.wait(0.5)
+        pcall(function()
+            ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", item.Name)
+        end)
+    end
+end
+
+task.spawn(function()
+    local raidGui = player:WaitForChild("PlayerGui"):WaitForChild("Raid")
+
+    local startBtn = raidGui:WaitForChild("Start")
+    clickGuiButton(startBtn)
+
+    task.wait(0.5)
+    
+    local autoSkipBtn = raidGui:WaitForChild("AutoSkip")
+    clickGuiButton(autoSkipBtn)
+    
+    SettingsRaid.Enabled = true
+end)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Enum.KeyCode.T then
+        SettingsRaid.Enabled = not SettingsRaid.Enabled
+    end
+end)
+
+player.Backpack.ChildAdded:Connect(storeItem)
+
+task.spawn(function()
+    while true do
+        if SettingsRaid.Enabled and getHRP() then 
+            pressKey(Enum.KeyCode.X) 
+        end
+        task.wait(1)
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if not SettingsRaid.Enabled then return end
+    
+    local myHRP = getHRP()
+    if not myHRP then return end
+    
+    local mob, mobHRP = findTarget()
+    if mob and mobHRP then
+        equipTool()
+        local targetCF = getFarmCFrame(mobHRP)
+        myHRP.CFrame = CFrame.lookAt(targetCF.Position, mobHRP.Position)
+        myHRP.AssemblyLinearVelocity = Vector3.zero
+        myHRP.AssemblyAngularVelocity = Vector3.zero
+        clickAttack()
+    end
+end)
+
+player.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new(0,0))
+end)
