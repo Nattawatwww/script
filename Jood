@@ -159,9 +159,12 @@ local function bringMonsters(targetHRP)
 end
 
 local function clickAttack()
-    local x, y = camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2
+    local viewport = camera.ViewportSize
+    local x = viewport.X - 50
+    local y = viewport.Y - 50
+
     VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
-    task.wait()
+	task.wait()
     VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
 end
 
