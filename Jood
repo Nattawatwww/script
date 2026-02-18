@@ -337,6 +337,7 @@ end
 local pressedFOnce = false
 
 local function AutoRaid()
+    local JobID = "540726c9-24b3-443f-97d8-2730fccadbc4"
     local MainMapID = 110029522258215 
     local RaidMapID = 123886389200671
 
@@ -402,14 +403,11 @@ local function AutoRaid()
             end
 
             while Settings.AutoRaid and task.wait(1) do
-                if game.PlaceId ~= RaidMapID then break end
-                
-                local finishGui = raidGui:FindFirstChild("Finish")
-                if finishGui and finishGui.Visible then
-                    Settings.Enabled = false
-                    repeat task.wait()
-                    until not finishGui.Visible
-					---Replay
+                local finishGui = raidGui:FindFirstChild("End") 
+				if finishGui and finishGui.Visible then
+				    task.wait(10)
+				    Settings.Enabled = false
+				    TeleportService:TeleportToPlaceInstance(MainMapID, JobID, player)
                     break
                 end
 
