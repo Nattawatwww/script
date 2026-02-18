@@ -47,7 +47,7 @@ local Settings = {
     Monsters = {},
     Tool = nil,
     Position = "Above",
-    Distance = 10,
+    Distance = 9,
     Skills = { Z = false, X = false, C = false, V = false, B = false },
     SelectedCraftItem = "Sukuna Core",
     SelectedStoreItem = {},
