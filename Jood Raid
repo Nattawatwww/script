@@ -3,28 +3,322 @@ local VirtualUser = game:GetService("VirtualUser")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
-
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
+local dataRemote = ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent")
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local TeleportService = game:GetService("TeleportService")
+local storeconn
+local craftconn
+local randomConn
+
+local lastCraftFire = 0
+local lastRandomFire = 0
+local craftcooldown = 0.1
+local randomcooldown = 0.1
+
+
+local Window = Fluent:CreateWindow({
+    Title = "Jood Piece [2.0]",
+    SubTitle = "by LuckyZ",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = false,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.RightControl
+})
+
+local Tabs = {
+    Main = Window:AddTab({ Title = "Main", Icon = "box" }),
+	Farm = Window:AddTab({ Title = "Farm", Icon = "box" }),
+    Auto = Window:AddTab({ Title = "Auto", Icon = "refresh-cw" }),
+    Skills = Window:AddTab({ Title = "Skills", Icon = "swords" }),
+    Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
 
 local Settings = {
     Enabled = false,
-    Tool = "Cid Kagenou",
-    Distance = 10,
+    AutoSkill = false,
+	AutoRaid = false,
+	AutoSukunaw = false,
+	AutoFlashy = false,
+    AutoSummon = false,
+    Monsters = {},
+    Tool = nil,
     Position = "Above",
-    Monsters = {
-        "Sukuna",
-        "Speed Zombie",
-        "Zombie",
-        "Skeleton",
-        "Chicken",
-        "Flashy Flash",
-        "Kirito"
-    }
+    Distance = 9,
+    Skills = { Z = false, X = false, C = false, V = false, B = false },
+    SelectedCraftItem = "Sukuna Core",
+    SelectedStoreItem = {},
 }
 
--- ฟังก์ชันสำหรับคลิกปุ่ม
+local IslandLocations = {
+    ["Starter Island"] = CFrame.new(-45.4874115, 21.7141285, 181.472717),
+    ["Beast Island"] = CFrame.new(-333.850067, 11.9821749, -2448.74438),
+    ["Cave Island"] = CFrame.new(1540.15881, 10.9430971, 929.851685),
+    ["Event Island"] = CFrame.new(-1158.34314, 16.0606022, -1480.6676),
+    ["Jojo Island"] = CFrame.new(1816.94287109375, 13.832566261291504, -150.20919799804688),
+    ["DIO Island"] = CFrame.new(-2496.0341796875, 10.730810165405273, 535.1491088867188),
+	["Boss Island"] = CFrame.new(-2750.375732421875, 19.725997924804688, -1403.254638671875),
+    ["Orb Island"] = CFrame.new(-2265.076904296875, 10.042778968811035, 1622.0653076171875),
+}
+
+local CurrentTarget = nil
+
+local function getMonsterRoots()
+    local roots = {}
+    if workspace:FindFirstChild("Mobs") then
+        table.insert(roots, workspace.Mobs)
+    end
+    return roots
+end
+
+local function getHRP()
+    local char = player.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function equipTool()
+    if Settings.Tool and player.Character then
+        if not player.Character:FindFirstChild(Settings.Tool) then
+            local tool = player.Backpack:FindFirstChild(Settings.Tool)
+            if tool then
+                tool.Parent = player.Character
+            end
+        end
+    end
+end
+
+local function AttackRemote(skillName)
+    local myHRP = getHRP()
+    if not myHRP then return end
+    local args = { { { "Skill", skillName, myHRP.CFrame }, "\004" } }
+    dataRemote:FireServer(unpack(args))
+end
+
+local function getFarmCFrame(mobHRP)
+    local d = Settings.Distance
+    if Settings.Position == "Behind" then
+        return mobHRP.CFrame * CFrame.new(0, 0, d)
+    elseif Settings.Position == "Above" then
+        return mobHRP.CFrame * CFrame.new(0, d, 0)
+    elseif Settings.Position == "Below" then
+        return mobHRP.CFrame * CFrame.new(0, -d, 0)
+    end
+    return mobHRP.CFrame
+end
+
+local function findTarget()
+    if CurrentTarget and CurrentTarget.Parent and CurrentTarget:FindFirstChild("HumanoidRootPart") then
+        local hum = CurrentTarget:FindFirstChildOfClass("Humanoid")
+        if hum and hum.Health > 0 then
+            return CurrentTarget, CurrentTarget.HumanoidRootPart
+        end
+    end
+    local roots = getMonsterRoots()
+    local closestMob = nil
+    local shortestDist = math.huge
+    local myHRP = getHRP()
+    if not myHRP then return nil end
+    for _, root in ipairs(roots) do
+        for _, mob in ipairs(root:GetDescendants()) do
+            if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
+                if Settings.Monsters[mob.Name] then
+                    local hum = mob:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        local dist = (myHRP.Position - mob.HumanoidRootPart.Position).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            closestMob = mob
+                        end
+                    end
+                end
+            end
+        end
+    end
+    CurrentTarget = closestMob
+    return closestMob, (closestMob and closestMob.HumanoidRootPart)
+end
+
+local function bringMonsters(targetHRP)
+    if not Settings.BringMob or not targetHRP then return end
+    local roots = getMonsterRoots()
+    for _, root in ipairs(roots) do
+        for _, mob in ipairs(root:GetDescendants()) do
+            if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") and mob.Name == targetHRP.Parent.Name then
+                if mob ~= targetHRP.Parent then
+                    local hum = mob:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        mob.HumanoidRootPart.CFrame = targetHRP.CFrame
+                        mob.HumanoidRootPart.CanCollide = false
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function clickAttack()
+    local viewport = camera.ViewportSize
+    local x = viewport.X - 50
+    local y = viewport.Y - 50
+
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
+	task.wait()
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+end
+
+local function PressKey(key)
+    local keycode = Enum.KeyCode[key]
+
+    if keycode then
+        VirtualInputManager:SendKeyEvent(true, keycode, false, game)
+        task.wait()
+        VirtualInputManager:SendKeyEvent(false, keycode, false, game)
+    end
+end
+
+local skillLoopRunning = false
+
+local function AutoFarmSkillLoop()
+    if skillLoopRunning then return end
+    skillLoopRunning = true
+
+    while Settings.Enabled do
+        task.wait(0.3)
+        if CurrentTarget and player.Character then
+            for key, isEnabled in pairs(Settings.Skills) do
+                if isEnabled and Settings.Enabled then
+                    PressKey(key)
+                end
+            end
+        end
+    end
+
+    skillLoopRunning = false
+end
+
+local function AutoFarmLoop()
+    task.spawn(AutoFarmSkillLoop)
+
+    while Settings.Enabled do
+        RunService.Heartbeat:Wait()
+
+        pcall(function()
+            local myHRP = getHRP()
+            local mobModel, mobHRP = findTarget()
+
+            if mobModel and mobHRP then
+                equipTool()
+                if not pressedFOnce and Settings.Tool == "Kirito" then
+                    local char = player.Character
+                    if char and char:FindFirstChild("Kirito") then
+                        PressKey("F")
+                        pressedFOnce = true
+                    end
+                end
+
+                if Settings.BringMob then
+                    bringMonsters(mobHRP)
+                end
+
+                local targetCFrame = getFarmCFrame(mobHRP)
+                myHRP.CFrame = CFrame.lookAt(targetCFrame.Position, mobHRP.Position)
+                myHRP.Velocity = Vector3.new(0,0,0)
+
+                clickAttack()
+            end
+        end)
+    end
+end
+
+
+local function StandAutoSkillLoop()
+    while Settings.AutoSkill do
+        task.wait(0.5)
+        if not Settings.Enabled then
+            pcall(function()
+                equipTool()
+                for key, isEnabled in pairs(Settings.Skills) do
+                    if isEnabled then
+                        PressKey(key)
+                    end
+                end
+            end)
+        end
+    end
+end
+
+local clicking = false
+local clickLoop
+
+local function realClick()
+    local viewport = camera.ViewportSize
+    local x = viewport.X / 2
+    local y = viewport.Y / 2
+
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
+    task.wait()
+    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+end
+
+local function teleportToKirito()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+
+    local kiritoPart = workspace:WaitForChild("KiritoClick"):WaitForChild("KiritoClick1")
+    hrp.CFrame = kiritoPart:GetPivot() * CFrame.new(0,0,3)
+end
+
+local function StoreTool(tool)
+    if tool:IsA("Tool") and Settings.SelectedStoreItem[tool.Name] then
+        task.wait(0.1)
+        ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", tool.Name)
+    end
+end
+
+local function AutoStoreLoop()
+    if not Settings.AutoStore then
+        if storeconn then
+            storeconn:Disconnect()
+            storeconn = nil
+        end
+        return
+    end
+
+    for _, tool in ipairs(player.Backpack:GetChildren()) do
+        StoreTool(tool)
+    end
+
+    if storeconn then storeconn:Disconnect() end
+
+    storeconn = player.Backpack.ChildAdded:Connect(function(tool)
+        if not Settings.AutoStore then return end
+        StoreTool(tool)
+    end)
+end
+
+local function AutoCraftLoop()
+    if craftconn then craftconn:Disconnect() end
+
+    craftconn = RunService.Heartbeat:Connect(function()
+        if not Settings.AutoCraft then
+            craftconn:Disconnect()
+            craftconn = nil
+            return
+        end
+
+        local now = os.clock()
+        if now - lastCraftFire >= craftcooldown then
+            lastCraftFire = now
+            pcall(function()
+                ReplicatedStorage.System.CraftItem:FireServer(Settings.SelectedCraftItem)
+            end)
+        end
+    end)
+end
+
 local function clickGuiButton(buttonPath)
     if buttonPath and buttonPath:IsA("GuiButton") then
         local pos = buttonPath.AbsolutePosition
@@ -40,146 +334,563 @@ local function clickGuiButton(buttonPath)
     return false
 end
 
-local InitialItems = {}
-for _, item in ipairs(player.Backpack:GetChildren()) do
-    InitialItems[item.Name] = true
-end
-
-local function getHRP()
-    return player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-end
-
-local function monsterAllowed(name)
-    for _, v in ipairs(Settings.Monsters) do
-        if name:find(v) then return true end
-    end
-    return false
-end
-
-local function equipTool()
-    local char = player.Character
-    if not char or char:FindFirstChild(Settings.Tool) then return end
-    local tool = player.Backpack:FindFirstChild(Settings.Tool)
-    if tool then tool.Parent = char end
-end
-
-local function getFarmCFrame(mobHRP)
-    local d = Settings.Distance
-    if Settings.Position == "Behind" then
-        return mobHRP.CFrame * CFrame.new(0, 0, d)
-    elseif Settings.Position == "Below" then
-        return mobHRP.CFrame * CFrame.new(0, -d, 0)
-    else
-        return mobHRP.CFrame * CFrame.new(0, d, 0)
+local function CollectItems()
+    for _, item in ipairs(player.Backpack:GetChildren()) do
+        if item:IsA("Tool") and item.Name ~= Settings.Tool then
+            pcall(function()
+                ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", item.Name)
+            end)
+        end
     end
 end
 
-local function findTarget()
-    local myHRP = getHRP()
-    if not myHRP then return nil end
-    local closest, shortest = nil, math.huge
-    local targetFolders = {workspace:FindFirstChild("Mobs"), workspace:FindFirstChild("Mob")}
-    
-    for _, folder in ipairs(targetFolders) do
-        if folder then
-            for _, mob in ipairs(folder:GetDescendants()) do
-                if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
-                    local hum = mob:FindFirstChildOfClass("Humanoid")
-                    if hum and hum.Health > 0 and monsterAllowed(mob.Name) then
-                        local dist = (myHRP.Position - mob.HumanoidRootPart.Position).Magnitude
-                        if dist < shortest then
-                            shortest = dist
-                            closest = mob
-                        end
+local pressedFOnce = false
+
+local function AutoRaid()
+    local JobID = "540726c9-24b3-443f-97d8-2730fccadbc4"
+    local MainMapID = 110029522258215 
+    local RaidMapID = 123886389200671
+
+    if game.PlaceId == MainMapID then
+        task.spawn(function()
+            pcall(function()
+                local hrp = getHRP()
+                if not hrp then return end
+
+                hrp.CFrame = CFrame.new(205.836639, 29.078067, 500.664794)
+                task.wait(0.3)
+
+                ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Raid Ticket")
+
+                local raidSummon = workspace:FindFirstChild("RaidSummon")
+                if raidSummon and raidSummon:FindFirstChild("Epart") then
+                    local epart = raidSummon.Epart
+                    local prompt = epart:FindFirstChildOfClass("ProximityPrompt")
+                    
+                    if prompt then
+                        local targetPos = epart.Position
+                        hrp.CFrame = CFrame.lookAt(hrp.Position, Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z))
+                        workspace.CurrentCamera.CFrame = CFrame.lookAt(workspace.CurrentCamera.CFrame.Position, targetPos)
+                        task.wait(0.2)
+                        fireproximityprompt(prompt)              
+                        task.wait(0.3)
+                    end
+                end
+
+                local raidPath = workspace:FindFirstChild("RaidPath")
+                if raidPath then
+                    hrp.CFrame = raidPath:GetPivot()
+                end
+            end)
+        end)
+
+    elseif game.PlaceId == RaidMapID then 
+        task.spawn(function()
+            local playerGui = player:WaitForChild("PlayerGui")
+            local raidGui = playerGui:WaitForChild("Raid")
+            local startBtn = raidGui:WaitForChild("Start", 5)
+
+            if startBtn then clickGuiButton(startBtn) end
+			task.wait(0.3)
+			if startBtn then clickGuiButton(startBtn) end
+            task.wait(0.3)
+            local autoSkipBtn = raidGui:WaitForChild("AutoSkip", 5)
+            if autoSkipBtn then clickGuiButton(autoSkipBtn) end
+            
+            if not Settings.Enabled then
+                Settings.Tool = "Kirito"
+                Settings.Monsters = {
+                    ["Sukuna"] = true, 
+                    ["Speed Zombie"] = true, 
+                    ["Zombie"] = true,
+                    ["Skeleton"] = true,
+                    ["Chicken"] = true,
+                    ["Flashy Flash"] = true,
+                    ["Kirito"] = true
+                } 
+                Settings.Enabled = true
+                task.spawn(AutoFarmLoop)
+            end
+
+            while Settings.AutoRaid and task.wait(1) do
+                local finishGui = raidGui:FindFirstChild("End") 
+				if finishGui and finishGui.Visible then
+				    task.wait(9)
+					CollectItems()
+					task.wait(1)
+				    Settings.Enabled = false
+				    TeleportService:TeleportToPlaceInstance(MainMapID, JobID, player)
+                    break
+                end
+
+                if Settings.Enabled then
+				    PressKey("C")
+					task.wait(0.5)
+                    PressKey("V")
+                end
+
+                for _, item in ipairs(player.Backpack:GetChildren()) do
+                    if item:IsA("Tool") and item.Name ~= Settings.Tool then
+                        pcall(function()
+                            ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", item.Name)
+                        end)
                     end
                 end
             end
-        end
-    end
-    return closest, closest and closest.HumanoidRootPart
-end
-
-local function clickAttack()
-    local x, y = camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2
-    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
-    task.wait(0.05)
-    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
-end
-
-local function pressKey(key)
-    VirtualInputManager:SendKeyEvent(true, key, false, game)
-    task.wait(0.05)
-    VirtualInputManager:SendKeyEvent(false, key, false, game)
-end
-
-local function isEndVisible()
-    local raidGui = player.PlayerGui:FindFirstChild("Raid")
-    if raidGui then
-        local endButton = raidGui:FindFirstChild("End")
-        if endButton and endButton.Visible then
-            return true
-        end
-    end
-    return false
-end
-
-task.spawn(function()
-    local raidGui = player:WaitForChild("PlayerGui"):WaitForChild("Raid")
-    local startBtn = raidGui:WaitForChild("Start")
-    local autoSkipBtn = raidGui:WaitForChild("AutoSkip")
-    
-    clickGuiButton(startBtn)
-    task.wait(0.5)
-    clickGuiButton(autoSkipBtn)
-    
-    Settings.Enabled = true
-end)
-
-UserInputService.InputBegan:Connect(function(input, processed)
-    if not processed and input.KeyCode == Enum.KeyCode.T then
-        Settings.Enabled = not Settings.Enabled
-    end
-end)
-
-player.Backpack.ChildAdded:Connect(function(item)
-    if not InitialItems[item.Name] and item.Name ~= Settings.Tool then
-        task.wait(0.5)
-        pcall(function()
-            ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", item.Name)
         end)
     end
-end)
+end
 
-task.spawn(function()
-    while true do
-        if Settings.Enabled and not isEndVisible() and getHRP() then 
-            pressKey(Enum.KeyCode.X) 
+local function AutoSummonSukunaLoop()
+    while Settings.AutoSukuna do
+        task.wait(1.5)
+        pcall(function()
+            local bossIsland = workspace:FindFirstChild("Mobs") and workspace.Mobs:FindFirstChild("Boss Island")
+            local SukunaExist = bossIsland and bossIsland:FindFirstChild("Sukuna")
+
+            if not SukunaExist then
+                local playerGui = player:FindFirstChild("PlayerGui")
+                local summonMenu = playerGui and playerGui:FindFirstChild("MainGui") and playerGui.MainGui:FindFirstChild("SUMMON")
+                
+                if summonMenu then
+                    if summonMenu.Visible == false then 
+                        summonMenu.Visible = true
+                    end
+
+                    local summonBtn = summonMenu.Main:FindFirstChild("Sukuna")
+
+                    if summonBtn and summonBtn.Visible then
+                        local pos = summonBtn.AbsolutePosition
+                        local size = summonBtn.AbsoluteSize
+                        local centerX = pos.X + (size.X / 2)
+                        local centerY = pos.Y + (size.Y / 2) + 58
+
+                        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+                        task.wait(0.1)
+                        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                    end
+                end
+            end
+        end)
+    end
+end
+
+local function AutoSummonFlashyLoop()
+    while Settings.AutoFlashy do
+        task.wait(1.5)
+        pcall(function()
+            local bossIsland = workspace:FindFirstChild("Mobs") and workspace.Mobs:FindFirstChild("Boss Island")
+            local flashyExist = bossIsland and bossIsland:FindFirstChild("Flashy Flash")
+
+            if not flashyExist then
+                local playerGui = player:FindFirstChild("PlayerGui")
+                local summonMenu = playerGui and playerGui:FindFirstChild("MainGui") and playerGui.MainGui:FindFirstChild("SUMMON")
+                
+                if summonMenu then
+                    if summonMenu.Visible == false then 
+                        summonMenu.Visible = true
+                    end
+
+                    local summonBtn = summonMenu.Main:FindFirstChild("Flashy Flash")
+
+                    if summonBtn and summonBtn.Visible then
+                        local pos = summonBtn.AbsolutePosition
+                        local size = summonBtn.AbsoluteSize
+                        local centerX = pos.X + (size.X / 2)
+                        local centerY = pos.Y + (size.Y / 2) + 58
+
+                        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+                        task.wait(0.1)
+                        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                    end
+                end
+            end
+        end)
+    end
+end
+
+local function DioClickAction()
+    local dioNPC = workspace.NPC:FindFirstChild("DioNPC")
+    if dioNPC then
+        local myHRP = getHRP()
+        local char = player.Character
+        if myHRP and char then
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid:UnequipTools()
+            end
+            local npcPos = dioNPC:GetPivot().Position
+            myHRP.CFrame = dioNPC:GetPivot() * CFrame.new(0, 0, 1.8)
+            myHRP.CFrame = CFrame.lookAt(myHRP.Position, Vector3.new(npcPos.X, myHRP.Position.Y, npcPos.Z))
+            workspace.CurrentCamera.CFrame = CFrame.lookAt(workspace.CurrentCamera.CFrame.Position, npcPos)
+            task.wait(0.2)
+            local viewportSize = workspace.CurrentCamera.ViewportSize
+            local centerX, centerY = viewportSize.X / 2, viewportSize.Y / 2
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+            task.wait(0.05)
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
         end
-        task.wait(1)
     end
-end)
+end
 
-RunService.Heartbeat:Connect(function()
-    if not Settings.Enabled or isEndVisible() then 
-	    task.wait(15)
-        return 
+local function AutoSummonLoop()
+    while Settings.AutoSummon do
+        task.wait(1.5)
+        pcall(function()
+            local dioExist = false
+            local mobs = workspace:FindFirstChild("Mobs")
+            if mobs and mobs:FindFirstChild("DIO Island") and mobs["DIO Island"]:FindFirstChild("DIO Overheaven") then
+                dioExist = true
+            end
+            if not dioExist then
+                local hasArrow = player.Backpack:FindFirstChild("Heavenly Arrow") or player.Character:FindFirstChild("Heavenly Arrow")
+                if not hasArrow then
+                    ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Heavenly Arrow")
+                    task.wait(0.8)
+                end
+                DioClickAction()
+            end
+        end)
     end
-    
-    local myHRP = getHRP()
-    if not myHRP then return end
-    
-    local mob, mobHRP = findTarget()
-    if mob and mobHRP then
-        equipTool()
-        local targetCF = getFarmCFrame(mobHRP)
-        myHRP.CFrame = CFrame.lookAt(targetCF.Position, mobHRP.Position)
-        myHRP.AssemblyLinearVelocity = Vector3.zero
-        myHRP.AssemblyAngularVelocity = Vector3.zero
-        clickAttack()
+end
+
+local MonsterDrop = Tabs.Main:AddDropdown("MonsterDrop", {
+    Title = "Select Monsters",
+    Values = {"None"},
+    Multi = true,
+    Default = {},
+    Callback = function(v)
+        Settings.Monsters = v
+        CurrentTarget = nil
     end
-end)
+})
+
+local ToolDrop = Tabs.Main:AddDropdown("ToolDrop", {
+    Title = "Select Tool",
+    Values = {"None"},
+    Callback = function(v)
+        Settings.Tool = v
+    end
+})
+
+local function RefreshList()
+    local mobs, seen = {}, {}
+    local roots = getMonsterRoots()
+    for _, root in ipairs(roots) do
+        for _, m in ipairs(root:GetDescendants()) do
+            if m:IsA("Model") and m:FindFirstChild("HumanoidRootPart") and not seen[m.Name] then
+                seen[m.Name] = true
+                table.insert(mobs, m.Name)
+            end
+        end
+    end
+    MonsterDrop:SetValues(mobs)
+    local tools = {}
+    local function checkTools(container)
+        for _, t in ipairs(container:GetChildren()) do
+            if t:IsA("Tool") and not table.find(tools, t.Name) then
+                table.insert(tools, t.Name)
+            end
+        end
+    end
+    checkTools(player.Backpack)
+    if player.Character then checkTools(player.Character) end
+    ToolDrop:SetValues(tools)
+end
+
+Tabs.Main:AddButton({
+    Title = "Refresh List",
+    Callback = function()
+        RefreshList()
+    end
+})
+
+Tabs.Main:AddDropdown("PosDrop", {
+    Title = "Farm Position",
+    Values = {"Behind","Above","Below"},
+    Default = "Above",
+    Callback = function(v)
+        Settings.Position = v
+    end
+})
+
+Tabs.Main:AddSlider("Dist", {
+    Title = "Distance",
+    Min = 1,
+    Max = 25,
+    Default = 9,
+    Rounding = 1,
+    Callback = function(v)
+        Settings.Distance = v
+    end
+})
+
+Tabs.Main:AddToggle("Farm", {
+    Title = "Auto Farm",
+    Default = false,
+    Callback = function(v)
+    Settings.Enabled = v
+    pressedFOnce = false
+
+    if v then 
+        task.spawn(AutoFarmLoop) 
+    end
+end
+})
+
+Tabs.Main:AddToggle("BringMob", {
+    Title = "Bring Mobs",
+    Default = false,
+    Callback = function(v)
+        Settings.BringMob = v
+    end
+})
+
+Tabs.Main:AddToggle("AutoSkill", {
+    Title = "Auto Skill",
+    Default = false,
+    Callback = function(v)
+        Settings.AutoSkill = v
+        if v then 
+            task.spawn(StandAutoSkillLoop) 
+        end
+    end
+})
+
+Tabs.Farm:AddToggle("AutoKiritoClick", {
+    Title = "Auto Kirito",
+    Default = false,
+    Callback = function(state)
+        clicking = state
+
+        if clicking then
+            teleportToKirito()
+
+            clickLoop = task.spawn(function()
+                while clicking do
+                    realClick()
+                    task.wait()
+                end
+            end)
+        end
+    end
+})
+
+Tabs.Farm:AddToggle("Auto Sukuna", {
+    Title = "Auto Summon Sukuna",
+    Default = false,
+    Callback = function(v)
+        Settings.AutoSukuna = v
+        if v then
+            task.spawn(AutoSummonSukunaLoop)
+        end
+    end
+})
+
+Tabs.Farm:AddToggle("Auto Flashy", {
+    Title = "Auto Summon Flashy Flash",
+    Default = false,
+    Callback = function(v)
+        Settings.AutoFlashy = v
+        if v then
+            task.spawn(AutoSummonFlashyLoop)
+        end
+    end
+})
+
+Tabs.Farm:AddToggle("AutoSummon", {
+    Title = "Auto Summon DIO",
+    Default = false,
+    Callback = function(v)
+        Settings.AutoSummon = v
+        if v then 
+            task.spawn(AutoSummonLoop) 
+        end
+    end
+})
+
+Tabs.Farm:AddToggle("AutoRaid", {
+    Title = "Auto Raid",
+    Default = true,
+    Callback = function(v)
+        Settings.AutoRaid = v
+        if v then
+            AutoRaid()
+        end
+    end
+})
+
+local StoreDrop = Tabs.Auto:AddDropdown("StoreDrop", {
+    Title = "Select Items to Store",
+    Values = {"None"},
+    Multi = true,
+    Default = {},
+    Callback = function(v)
+        Settings.SelectedStoreItem = v
+    end
+})
+
+Tabs.Auto:AddButton({
+    Title = "Refresh Inventory",
+    Callback = function()
+        local items = {}
+        local function scan(c)
+            for _, t in ipairs(c:GetChildren()) do
+                if t:IsA("Tool") and not table.find(items, t.Name) then
+                    table.insert(items, t.Name)
+                end
+            end
+        end
+        scan(player.Backpack)
+        if player.Character then scan(player.Character) end
+        StoreDrop:SetValues(items)
+    end
+})
+
+Tabs.Auto:AddToggle("AutoStore", {
+    Title = "Auto Store",
+    Default = false,
+    Callback = function(v)
+        Settings.AutoStore = v
+        if v then 
+            task.spawn(AutoStoreLoop) 
+        end
+    end
+})
+
+Tabs.Auto:AddDropdown("CraftSelect", {
+    Title = "Select Item",
+    Values = { "Sukuna Core", "Haki Book", "Take Copter"},
+    Default = "Sukuna Core",
+    Callback = function(v)
+        Settings.SelectedCraftItem = v
+    end
+})
+
+Tabs.Auto:AddToggle("AutoCraft", {
+    Title = "Auto Craft",
+    Default = false,
+    Callback = function(v)
+        Settings.AutoCraft = v
+        if v then 
+            task.spawn(AutoCraftLoop) 
+        end
+    end
+})
+
+Tabs.Auto:AddButton({
+    Title = "Manual Craft",
+    Callback = function()
+        ReplicatedStorage.System.CraftItem:FireServer(Settings.SelectedCraftItem)
+    end
+})
+
+Tabs.Auto:AddToggle("RandomCrate", {
+    Title = "Random Crate",
+    Default = false,
+    Callback = function(state)
+
+        if not state then
+            if randomConn then
+                randomConn:Disconnect()
+                randomConn = nil
+            end
+            return
+        end
+
+        if randomConn then randomConn:Disconnect() end
+
+        randomConn = RunService.Heartbeat:Connect(function()
+            local now = os.clock()
+            if now - lastRandomFire >= randomcooldown then
+                lastRandomFire = now
+                pcall(function()
+                    ReplicatedStorage.System.RandomItem:FireServer(5)
+                end)
+            end
+        end)
+    end
+})
+
+
+for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
+    Tabs.Skills:AddToggle("Skill"..k, {
+        Title = "Skill ["..k.."]",
+        Default = false,
+        Callback = function(v)
+            Settings.Skills[k] = v
+        end
+    })
+end
+
+local IslandList = {}
+for name, _ in pairs(IslandLocations) do
+    table.insert(IslandList, name)
+end
+table.sort(IslandList)
+
+Tabs.Teleport:AddDropdown("IslandDrop", {
+    Title = "Select Island",
+    Values = IslandList,
+    Callback = function(v)
+        local pos = IslandLocations[v]
+        local hrp = getHRP()
+        if hrp and pos then
+            hrp.CFrame = pos
+        end
+    end
+})
+
+Tabs.Settings:AddToggle("Disable3D", {
+    Title = "Disable 3D Rendering",
+    Default = false,
+    Callback = function(v)
+        RunService:Set3dRenderingEnabled(not v)
+    end
+})
+
+local FpsValue = 60
+Tabs.Settings:AddInput("FpsInput", {
+    Title = "FPS Lock",
+    Default = "60",
+    Numeric = true,
+    Finished = false,
+    Callback = function(v)
+        FpsValue = tonumber(v) or 60
+    end
+})
+
+Tabs.Settings:AddButton({
+    Title = "Apply",
+    Callback = function()
+        if setfpscap then
+            setfpscap(FpsValue)
+        end
+    end
+})
+
+Tabs.Settings:AddToggle("AFK", {
+    Title = "AFK Mode",
+    Default = false,
+    Callback = function(v)
+        if v then
+            RunService:Set3dRenderingEnabled(false)
+            if setfpscap then
+                setfpscap(20)
+            end
+        else
+            RunService:Set3dRenderingEnabled(true)
+            if setfpscap then
+                setfpscap(180)
+            end
+        end
+    end
+})
 
 player.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new(0,0))
 end)
+
+RefreshList()
+Window:SelectTab(1)
