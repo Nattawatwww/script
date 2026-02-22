@@ -41,7 +41,8 @@ local Settings = {
     Enabled = false,
     AutoSkill = false,
 	AutoRaid = false,
-	AutoSukunaw = false,
+	AutoGojo = false,
+	AutoSukuna = false,
 	AutoFlashy = false,
     AutoSummon = false,
     Monsters = {},
@@ -49,7 +50,7 @@ local Settings = {
     Position = "Above",
     Distance = 9,
     Skills = { Z = false, X = false, C = false, V = false, B = false },
-    SelectedCraftItem = "Sukuna Core",
+    SelectedCraftItem = "Gojo Meat",
     SelectedStoreItem = {},
 }
 
@@ -334,10 +335,19 @@ local function clickGuiButton(buttonPath)
     return false
 end
 
+local function CollectItems()
+    for _, item in ipairs(player.Backpack:GetChildren()) do
+        if item:IsA("Tool") and item.Name ~= Settings.Tool then
+            pcall(function()
+                ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", item.Name)
+            end)
+        end
+    end
+end
+
 local pressedFOnce = false
 
 local function AutoRaid()
-    local JobID = "540726c9-24b3-443f-97d8-2730fccadbc4"
     local MainMapID = 110029522258215 
     local RaidMapID = 123886389200671
 
@@ -405,9 +415,6 @@ local function AutoRaid()
             while Settings.AutoRaid and task.wait(1) do
                 local finishGui = raidGui:FindFirstChild("End") 
 				if finishGui and finishGui.Visible then
-				    task.wait(10)
-				    Settings.Enabled = false
-				    TeleportService:TeleportToPlaceInstance(MainMapID, JobID, player)
                     break
                 end
 
@@ -542,6 +549,78 @@ local function AutoSummonLoop()
     end
 end
 
+local function GojoClickAction()
+    local gojoNPC = workspace.NPC:FindFirstChild("GojoSummon")
+
+    if gojoNPC then
+        local myHRP = getHRP()
+        local char = player.Character
+
+        if myHRP and char then
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid:UnequipTools()
+            end
+
+			task.wait(0.05)
+
+            local camera = workspace.CurrentCamera
+            local npcPivot = gojoNPC:GetPivot()
+            local npcPos = npcPivot.Position
+
+            myHRP.CFrame = npcPivot * CFrame.new(0, 0, -1.8)
+
+            local lookPos = Vector3.new(npcPos.X, myHRP.Position.Y, npcPos.Z)
+            myHRP.CFrame = CFrame.lookAt(myHRP.Position, lookPos)
+
+            local camOffset = Vector3.new(3, 3, 7)
+            local newCamPos = (myHRP.CFrame * CFrame.new(camOffset)).Position
+
+            camera.CFrame = CFrame.lookAt(
+                newCamPos,
+                npcPos
+            )
+
+            task.wait(0.2)
+
+            local viewportSize = camera.ViewportSize
+            local centerX = viewportSize.X / 2
+            local centerY = viewportSize.Y / 2
+
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+            task.wait(0.05)
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+
+			task.wait(0.3)
+
+			VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+            task.wait(0.05)
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+        end
+    end
+end
+
+local function AutoSummonGojoLoop()
+    while Settings.AutoGojo do
+        task.wait(1.5)
+        pcall(function()
+            local gojoExist = false
+            local mobs = workspace:FindFirstChild("Mobs")
+            if mobs and mobs:FindFirstChild("Ocean") and mobs["Ocean"]:FindFirstChild("Gojo") then
+                gojoExist = true
+            end
+            if not gojoExist then
+                local hasArrow = player.Backpack:FindFirstChild("Gojo Meat") or player.Character:FindFirstChild("Gojo Meat")
+                if not hasArrow then
+                    ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Gojo Meat")
+                    task.wait(0.8)
+                end
+                GojoClickAction()
+            end
+        end)
+    end
+end
+
 local MonsterDrop = Tabs.Main:AddDropdown("MonsterDrop", {
     Title = "Select Monsters",
     Values = {"None"},
@@ -606,7 +685,7 @@ Tabs.Main:AddSlider("Dist", {
     Title = "Distance",
     Min = 1,
     Max = 25,
-    Default = 10,
+    Default = 9,
     Rounding = 1,
     Callback = function(v)
         Settings.Distance = v
@@ -664,6 +743,17 @@ Tabs.Farm:AddToggle("AutoKiritoClick", {
     end
 })
 
+Tabs.Farm:AddToggle("AutoGojo", {
+    Title = "Auto Summon Gojo",
+    Default = false,
+    Callback = function(v)
+        Settings.AutoGojo = v
+        if v then 
+            task.spawn(AutoSummonGojoLoop) 
+        end
+    end
+})
+
 Tabs.Farm:AddToggle("Auto Sukuna", {
     Title = "Auto Summon Sukuna",
     Default = false,
@@ -699,7 +789,7 @@ Tabs.Farm:AddToggle("AutoSummon", {
 
 Tabs.Farm:AddToggle("AutoRaid", {
     Title = "Auto Raid",
-    Default = true,
+    Default = false,
     Callback = function(v)
         Settings.AutoRaid = v
         if v then
@@ -748,8 +838,8 @@ Tabs.Auto:AddToggle("AutoStore", {
 
 Tabs.Auto:AddDropdown("CraftSelect", {
     Title = "Select Item",
-    Values = { "Sukuna Core", "Haki Book", "Take Copter"},
-    Default = "Sukuna Core",
+    Values = { "Gokumonkyo", "Gojo Meat", "Sun Glasses","Sukuna Core", "Haki Book", "Take Copter"},
+    Default = "Gojo Meat",
     Callback = function(v)
         Settings.SelectedCraftItem = v
     end
