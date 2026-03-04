@@ -5,7 +5,6 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
-local dataRemote = ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent")
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local TeleportService = game:GetService("TeleportService")
 local storeconn
@@ -66,6 +65,8 @@ local IslandLocations = {
 }
 
 local CurrentTarget = nil
+
+local args = {{{"Skill","A",},"\005"}}
 
 local function getMonsterRoots()
     local roots = {}
@@ -160,16 +161,6 @@ local function bringMonsters(targetHRP)
     end
 end
 
-local function clickAttack()
-    local viewport = camera.ViewportSize
-    local x = viewport.X - 50
-    local y = viewport.Y - 50
-
-    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
-	task.wait()
-    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
-end
-
 local function PressKey(key)
     local keycode = Enum.KeyCode[key]
 
@@ -228,7 +219,7 @@ local function AutoFarmLoop()
                 myHRP.CFrame = CFrame.lookAt(targetCFrame.Position, mobHRP.Position)
                 myHRP.Velocity = Vector3.new(0,0,0)
 
-                clickAttack()
+                game:GetService("ReplicatedStorage"):WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer(unpack(args))
             end
         end)
     end
@@ -444,27 +435,7 @@ local function AutoSummonSukunaLoop()
             local SukunaExist = bossIsland and bossIsland:FindFirstChild("Sukuna")
 
             if not SukunaExist then
-                local playerGui = player:FindFirstChild("PlayerGui")
-                local summonMenu = playerGui and playerGui:FindFirstChild("MainGui") and playerGui.MainGui:FindFirstChild("SUMMON")
-                
-                if summonMenu then
-                    if summonMenu.Visible == false then 
-                        summonMenu.Visible = true
-                    end
-
-                    local summonBtn = summonMenu.Main:FindFirstChild("Sukuna")
-
-                    if summonBtn and summonBtn.Visible then
-                        local pos = summonBtn.AbsolutePosition
-                        local size = summonBtn.AbsoluteSize
-                        local centerX = pos.X + (size.X / 2)
-                        local centerY = pos.Y + (size.Y / 2) + 58
-
-                        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
-                        task.wait(0.1)
-                        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
-                    end
-                end
+                game:GetService("ReplicatedStorage"):WaitForChild("System"):WaitForChild("Summon"):FireServer(unpack({"Sukuna"}))
             end
         end)
     end
@@ -478,27 +449,7 @@ local function AutoSummonFlashyLoop()
             local flashyExist = bossIsland and bossIsland:FindFirstChild("Flashy Flash")
 
             if not flashyExist then
-                local playerGui = player:FindFirstChild("PlayerGui")
-                local summonMenu = playerGui and playerGui:FindFirstChild("MainGui") and playerGui.MainGui:FindFirstChild("SUMMON")
-                
-                if summonMenu then
-                    if summonMenu.Visible == false then 
-                        summonMenu.Visible = true
-                    end
-
-                    local summonBtn = summonMenu.Main:FindFirstChild("Flashy Flash")
-
-                    if summonBtn and summonBtn.Visible then
-                        local pos = summonBtn.AbsolutePosition
-                        local size = summonBtn.AbsoluteSize
-                        local centerX = pos.X + (size.X / 2)
-                        local centerY = pos.Y + (size.Y / 2) + 58
-
-                        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
-                        task.wait(0.1)
-                        VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
-                    end
-                end
+                game:GetService("ReplicatedStorage"):WaitForChild("System"):WaitForChild("Summon"):FireServer(unpack({"Flashy Flash"}))
             end
         end)
     end
