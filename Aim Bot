@@ -1,7 +1,7 @@
 local Settings = {
     Keybind = Enum.KeyCode.T,
     FOV = 60,
-    Smoothness = 1,
+    Smoothness = 0.4,
     Prediction = 0,
     AimPart = "Head", 
     VisibleCheck = true,
