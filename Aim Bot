@@ -1,11 +1,11 @@
 local Settings = {
-    Keybind = Enum.KeyCode.F,
+    Keybind = Enum.KeyCode.T,
     FOV = 60,
-    Smoothness = 0.4,
+    Smoothness = 1,
     Prediction = 0,
     AimPart = "Head", 
     VisibleCheck = true,
-    TeamCheck = false
+    TeamCheck = true
 }
 
 local Players = game:GetService("Players")
