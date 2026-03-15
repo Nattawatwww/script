@@ -43,6 +43,7 @@ local Settings = {
 	AutoGojo = false,
 	AutoSukuna = false,
 	AutoFlashy = false,
+	AutoAizen = false,
     AutoSummon = false,
     Monsters = {},
     Tool = nil,
@@ -66,7 +67,7 @@ local IslandLocations = {
 
 local CurrentTarget = nil
 
-local args = {{{"Skill","A",},"\005"}}
+local args = {{{"Skill","A",},"\004"}}
 
 local function getMonsterRoots()
     local roots = {}
@@ -90,13 +91,6 @@ local function equipTool()
             end
         end
     end
-end
-
-local function AttackRemote(skillName)
-    local myHRP = getHRP()
-    if not myHRP then return end
-    local args = { { { "Skill", skillName, myHRP.CFrame }, "\004" } }
-    dataRemote:FireServer(unpack(args))
 end
 
 local function getFarmCFrame(mobHRP)
@@ -338,85 +332,140 @@ end
 
 local pressedFOnce = false
 
+local function GetAllRaidMobs()
+    local mobs = {}
+    local mobFolder = workspace:FindFirstChild("Mobs")
+
+    if mobFolder then
+        for _, mob in ipairs(mobFolder:GetDescendants()) do
+            if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
+                mobs[mob.Name] = true
+            end
+        end
+    end
+
+    return mobs
+end
+
+
 local function AutoRaid()
-    local MainMapID = 110029522258215 
+
+    local MainMapID = 110029522258215
     local RaidMapID = 123886389200671
 
-    if game.PlaceId == MainMapID then
-        task.spawn(function()
-            pcall(function()
-                local hrp = getHRP()
-                if not hrp then return end
 
-                hrp.CFrame = CFrame.new(205.836639, 29.078067, 500.664794)
+    if game.PlaceId == MainMapID then
+
+        task.spawn(function()
+
+            pcall(function()
+
+                local hrp = getHRP()
+                if not hrp then
+                    return
+                end
+
+
+                local npc = workspace:WaitForChild("NPC"):WaitForChild("BossRushNPC")
+
+                local npcPivot = npc:GetPivot()
+                local npcPos = npcPivot.Position
+
+
+                hrp.CFrame = npcPivot * CFrame.new(0,0,3)
+
+
+                hrp.CFrame = CFrame.lookAt(
+                    hrp.Position,
+                    Vector3.new(npcPos.X, hrp.Position.Y, npcPos.Z)
+                )
+
+                workspace.CurrentCamera.CFrame = CFrame.lookAt(
+                    workspace.CurrentCamera.CFrame.Position,
+                    npcPos
+                )
+
                 task.wait(0.3)
 
-                ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Raid Ticket")
+                ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Rush Ticket")
 
-                local raidSummon = workspace:FindFirstChild("RaidSummon")
-                if raidSummon and raidSummon:FindFirstChild("Epart") then
-                    local epart = raidSummon.Epart
-                    local prompt = epart:FindFirstChildOfClass("ProximityPrompt")
-                    
-                    if prompt then
-                        local targetPos = epart.Position
-                        hrp.CFrame = CFrame.lookAt(hrp.Position, Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z))
-                        workspace.CurrentCamera.CFrame = CFrame.lookAt(workspace.CurrentCamera.CFrame.Position, targetPos)
-                        task.wait(0.2)
-                        fireproximityprompt(prompt)              
-                        task.wait(0.3)
-                    end
+                task.wait(0.3)
+
+                local x = viewport.X / 2
+                local y = viewport.Y / 2
+
+                VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
+                task.wait(0.05)
+                VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+
+                task.wait(0.5)
+
+
+                local rushPart = workspace:FindFirstChild("BossRushPart")
+
+                if rushPart then
+                    hrp.CFrame = rushPart:GetPivot()
                 end
 
-                local raidPath = workspace:FindFirstChild("RaidPath")
-                if raidPath then
-                    hrp.CFrame = raidPath:GetPivot()
-                end
             end)
+
         end)
 
-    elseif game.PlaceId == RaidMapID then 
+
+
+    elseif game.PlaceId == RaidMapID then
+
         task.spawn(function()
+
             local playerGui = player:WaitForChild("PlayerGui")
             local raidGui = playerGui:WaitForChild("Raid")
-            local startBtn = raidGui:WaitForChild("Start", 5)
 
-            if startBtn then clickGuiButton(startBtn) end
-			task.wait(0.3)
-			if startBtn then clickGuiButton(startBtn) end
+            local startBtn = raidGui:WaitForChild("Start",5)
+
+            if startBtn then
+                clickGuiButton(startBtn)
+            end
+
             task.wait(0.3)
-            local autoSkipBtn = raidGui:WaitForChild("AutoSkip", 5)
-            if autoSkipBtn then clickGuiButton(autoSkipBtn) end
-            
+
+            if startBtn then
+                clickGuiButton(startBtn)
+            end
+
+            task.wait(0.3)
+
+            local autoSkipBtn = raidGui:WaitForChild("AutoSkip",5)
+
+            if autoSkipBtn then
+                clickGuiButton(autoSkipBtn)
+            end
+
+            Settings.Monsters = GetAllRaidMobs()
+
             if not Settings.Enabled then
                 Settings.Tool = "Kirito"
-                Settings.Monsters = {
-                    ["Sukuna"] = true, 
-                    ["Speed Zombie"] = true, 
-                    ["Zombie"] = true,
-                    ["Skeleton"] = true,
-                    ["Chicken"] = true,
-                    ["Flashy Flash"] = true,
-                    ["Kirito"] = true
-                } 
                 Settings.Enabled = true
                 task.spawn(AutoFarmLoop)
             end
 
             while Settings.AutoRaid and task.wait(1) do
-                local finishGui = raidGui:FindFirstChild("End") 
-				if finishGui and finishGui.Visible then
+                Settings.Monsters = GetAllRaidMobs()
+
+                local finishGui = raidGui:FindFirstChild("End")
+                if finishGui and finishGui.Visible then
                     break
                 end
 
                 if Settings.Enabled then
-				    PressKey("C")
-					task.wait(0.5)
-                    PressKey("V")
+                    PressKey("Z")
+                    task.wait(0.5)
+                    PressKey("X")
                 end
 
                 for _, item in ipairs(player.Backpack:GetChildren()) do
+
                     if item:IsA("Tool") and item.Name ~= Settings.Tool then
+
                         pcall(function()
                             ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", item.Name)
                         end)
@@ -450,6 +499,20 @@ local function AutoSummonFlashyLoop()
 
             if not flashyExist then
                 game:GetService("ReplicatedStorage"):WaitForChild("System"):WaitForChild("Summon"):FireServer(unpack({"Flashy Flash"}))
+            end
+        end)
+    end
+end
+
+local function AutoSummonAizenLoop()
+    while Settings.AutoAizen do
+        task.wait(1.5)
+        pcall(function()
+            local bossIsland = workspace:FindFirstChild("Mobs") and workspace.Mobs:FindFirstChild("Boss Island")
+            local AizenExist = bossIsland and bossIsland:FindFirstChild("Aizen")
+
+            if not AizenExist then
+                game:GetService("ReplicatedStorage"):WaitForChild("System"):WaitForChild("Summon"):FireServer(unpack({"Aizen"}))
             end
         end)
     end
@@ -690,6 +753,17 @@ Tabs.Farm:AddToggle("AutoKiritoClick", {
                     task.wait()
                 end
             end)
+        end
+    end
+})
+
+Tabs.Farm:AddToggle("Auto Aizen", {
+    Title = "Auto Summon Aizen",
+    Default = false,
+    Callback = function(v)
+        Settings.AutoAizen = v
+        if v then
+            task.spawn(AutoSummonAizenLoop)
         end
     end
 })
