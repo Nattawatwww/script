@@ -458,8 +458,12 @@ local function AutoRaid()
 
                 if Settings.Enabled then
                     PressKey("Z")
-                    task.wait(0.5)
+                    task.wait(0.1)
                     PressKey("X")
+					task.wait(0.1)
+					PressKey("C")
+                    task.wait(0.1)
+                    PressKey("V")
                 end
 
                 for _, item in ipairs(player.Backpack:GetChildren()) do
