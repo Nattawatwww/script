@@ -347,71 +347,85 @@ local function GetAllRaidMobs()
     return mobs
 end
 
+local function BossRushClickAction()
+
+    local npc = workspace.NPC:FindFirstChild("BossRushNPC")
+
+    if npc then
+        local myHRP = getHRP()
+        local char = player.Character
+
+        if myHRP and char then
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid:UnequipTools()
+            end
+
+            task.wait(0.05)
+
+            local camera = workspace.CurrentCamera
+            local npcPivot = npc:GetPivot()
+            local npcPos = npcPivot.Position
+
+            myHRP.CFrame = npcPivot * CFrame.new(0,0,-1.8)
+
+            local lookPos = Vector3.new(npcPos.X, myHRP.Position.Y, npcPos.Z)
+            myHRP.CFrame = CFrame.lookAt(myHRP.Position, lookPos)
+
+            local camOffset = Vector3.new(3,3,7)
+            local newCamPos = (myHRP.CFrame * CFrame.new(camOffset)).Position
+
+            camera.CFrame = CFrame.lookAt(
+                newCamPos,
+                npcPos
+            )
+
+			ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove","Rush Ticket")
+
+            task.wait(0.2)
+
+            local viewport = camera.ViewportSize
+            local centerX = viewport.X / 2
+            local centerY = viewport.Y / 2
+
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+            task.wait(0.05)
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+
+            task.wait(0.3)
+
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+            task.wait(0.05)
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+        end
+    end
+end
+
 
 local function AutoRaid()
 
     local MainMapID = 110029522258215
     local RaidMapID = 123886389200671
 
-
     if game.PlaceId == MainMapID then
 
         task.spawn(function()
-
             pcall(function()
 
                 local hrp = getHRP()
-                if not hrp then
-                    return
-                end
+                if not hrp then return end
 
-
-                local npc = workspace:WaitForChild("NPC"):WaitForChild("BossRushNPC")
-
-                local npcPivot = npc:GetPivot()
-                local npcPos = npcPivot.Position
-
-
-                hrp.CFrame = npcPivot * CFrame.new(0,0,3)
-
-
-                hrp.CFrame = CFrame.lookAt(
-                    hrp.Position,
-                    Vector3.new(npcPos.X, hrp.Position.Y, npcPos.Z)
-                )
-
-                workspace.CurrentCamera.CFrame = CFrame.lookAt(
-                    workspace.CurrentCamera.CFrame.Position,
-                    npcPos
-                )
-
-                task.wait(0.3)
-
-                ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Rush Ticket")
-
-                task.wait(0.3)
-
-                local x = viewport.X / 2
-                local y = viewport.Y / 2
-
-                VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
-                task.wait(0.05)
-                VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+                BossRushClickAction()
 
                 task.wait(0.5)
 
-
                 local rushPart = workspace:FindFirstChild("BossRushPart")
-
                 if rushPart then
                     hrp.CFrame = rushPart:GetPivot()
                 end
 
             end)
-
         end)
-
-
 
     elseif game.PlaceId == RaidMapID then
 
@@ -424,18 +438,13 @@ local function AutoRaid()
 
             if startBtn then
                 clickGuiButton(startBtn)
-            end
-
-            task.wait(0.3)
-
-            if startBtn then
+                task.wait(0.2)
                 clickGuiButton(startBtn)
             end
 
             task.wait(0.3)
 
             local autoSkipBtn = raidGui:WaitForChild("AutoSkip",5)
-
             if autoSkipBtn then
                 clickGuiButton(autoSkipBtn)
             end
@@ -449,6 +458,7 @@ local function AutoRaid()
             end
 
             while Settings.AutoRaid and task.wait(1) do
+
                 Settings.Monsters = GetAllRaidMobs()
 
                 local finishGui = raidGui:FindFirstChild("End")
@@ -460,22 +470,22 @@ local function AutoRaid()
                     PressKey("Z")
                     task.wait(0.1)
                     PressKey("X")
-					task.wait(0.1)
-					PressKey("C")
+                    task.wait(0.1)
+                    PressKey("C")
                     task.wait(0.1)
                     PressKey("V")
                 end
 
                 for _, item in ipairs(player.Backpack:GetChildren()) do
-
                     if item:IsA("Tool") and item.Name ~= Settings.Tool then
-
                         pcall(function()
                             ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", item.Name)
                         end)
                     end
                 end
+
             end
+
         end)
     end
 end
