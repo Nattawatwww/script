@@ -392,7 +392,13 @@ local function BossRushClickAction()
             task.wait(0.05)
             VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
 
-            task.wait(0.3)
+            task.wait(0.1)
+
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+            task.wait(0.05)
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+
+			task.wait(0.1)
 
             VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
             task.wait(0.05)
@@ -435,6 +441,7 @@ local function AutoRaid()
             local raidGui = playerGui:WaitForChild("Raid")
 
             local startBtn = raidGui:WaitForChild("Start",5)
+			local autoSkipBtn = raidGui:WaitForChild("AutoSkip", 5)
 
             if startBtn then
                 clickGuiButton(startBtn)
@@ -444,15 +451,16 @@ local function AutoRaid()
 
             task.wait(0.3)
 
-            local autoSkipBtn = raidGui:WaitForChild("AutoSkip",5)
             if autoSkipBtn then
                 clickGuiButton(autoSkipBtn)
             end
 
+			PressKey("J")
+
             Settings.Monsters = GetAllRaidMobs()
 
             if not Settings.Enabled then
-                Settings.Tool = "Kirito"
+                Settings.Tool = "Aizen"
                 Settings.Enabled = true
                 task.spawn(AutoFarmLoop)
             end
@@ -467,13 +475,12 @@ local function AutoRaid()
                 end
 
                 if Settings.Enabled then
-                    PressKey("Z")
-                    task.wait(0.1)
+                    task.wait(0.05)
                     PressKey("X")
-                    task.wait(0.1)
-                    PressKey("C")
-                    task.wait(0.1)
+                    task.wait(0.05)
                     PressKey("V")
+                    task.wait(0.05)
+                    PressKey("F")
                 end
 
                 for _, item in ipairs(player.Backpack:GetChildren()) do
