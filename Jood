@@ -331,6 +331,7 @@ local function CollectItems()
 end
 
 local pressedFOnce = false
+local waveSkipped = false
 
 local function GetAllRaidMobs()
     local mobs = {}
@@ -449,7 +450,7 @@ local function AutoRaid()
                 clickGuiButton(startBtn)
             end
 
-            task.wait(0.3)
+            task.wait(1)
 
             if autoSkipBtn then
                 clickGuiButton(autoSkipBtn)
@@ -474,12 +475,23 @@ local function AutoRaid()
                     break
                 end
 
+                local waveLabel = raidGui:FindFirstChild("Wave")
+                if waveLabel and waveLabel.Text == "[Wave 14/15]" and not waveSkipped then
+					waveSkipped = true
+                    if autoSkipBtn then
+                        clickGuiButton(autoSkipBtn)
+                    end
+                end
+
                 if Settings.Enabled then
-                    task.wait(0.05)
+                    PressKey("Z")
+                    task.wait(0.01)
                     PressKey("X")
-                    task.wait(0.05)
+                    task.wait(0.01)
+                    PressKey("C")
+                    task.wait(0.01)
                     PressKey("V")
-                    task.wait(0.05)
+                    task.wait(0.01)
                     PressKey("F")
                 end
 
