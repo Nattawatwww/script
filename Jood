@@ -40,6 +40,7 @@ local Settings = {
     Enabled = false,
     AutoSkill = false,
 	AutoRaid = false,
+	AutoRaidRush = false,
 	AutoGojo = false,
 	AutoSukuna = false,
 	AutoFlashy = false,
@@ -408,11 +409,101 @@ local function BossRushClickAction()
     end
 end
 
-
 local function AutoRaid()
+    local MainMapID = 110029522258215 
+    local RaidMapID = 123886389200671
+
+    if game.PlaceId == MainMapID then
+        task.spawn(function()
+            pcall(function()
+                local hrp = getHRP()
+                if not hrp then return end
+
+                hrp.CFrame = CFrame.new(205.836639, 29.078067, 500.664794)
+                task.wait(0.3)
+
+                ReplicatedStorage.System.Inv.Inventory:InvokeServer("Remove", "Raid Ticket")
+
+                local raidSummon = workspace.NPC:FindFirstChild("RaidSummon")
+                if raidSummon and raidSummon:FindFirstChild("Epart") then
+                    local epart = raidSummon.Epart
+                    local prompt = epart:FindFirstChildOfClass("ProximityPrompt")
+                    
+                    if prompt then
+                        local targetPos = epart.Position
+                        hrp.CFrame = CFrame.lookAt(hrp.Position, Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z))
+                        workspace.CurrentCamera.CFrame = CFrame.lookAt(workspace.CurrentCamera.CFrame.Position, targetPos)
+                        task.wait(0.2)
+                        fireproximityprompt(prompt)              
+                        task.wait(0.3)
+                    end
+                end
+
+                local raidPath = workspace:FindFirstChild("RaidPath")
+                if raidPath then
+                    hrp.CFrame = raidPath:GetPivot()
+                end
+            end)
+        end)
+
+    elseif game.PlaceId == RaidMapID then 
+        task.spawn(function()
+            local playerGui = player:WaitForChild("PlayerGui")
+            local raidGui = playerGui:WaitForChild("Raid")
+            local startBtn = raidGui:WaitForChild("Start", 5)
+
+            if startBtn then clickGuiButton(startBtn) end
+			task.wait(0.3)
+			if startBtn then clickGuiButton(startBtn) end
+            task.wait(0.3)
+            local autoSkipBtn = raidGui:WaitForChild("AutoSkip", 5)
+            if autoSkipBtn then clickGuiButton(autoSkipBtn) end
+            
+            if not Settings.Enabled then
+                Settings.Tool = "Aizen"
+                Settings.Monsters = {
+                    ["Sukuna"] = true, 
+                    ["Speed Zombie"] = true, 
+                    ["Zombie"] = true,
+                    ["Skeleton"] = true,
+                    ["Chicken"] = true,
+                    ["Flashy Flash"] = true,
+                    ["Kirito"] = true
+                } 
+                Settings.Enabled = true
+                task.spawn(AutoFarmLoop)
+            end
+
+            while Settings.AutoRaid and task.wait(1) do
+                local finishGui = raidGui:FindFirstChild("End") 
+				if finishGui and finishGui.Visible then
+                    break
+                end
+
+                if Settings.Enabled then
+					PressKey("Z")
+					task.wait(0.001)
+				    PressKey("X")
+					task.wait(0.001)
+                    PressKey("V")
+                end
+
+                for _, item in ipairs(player.Backpack:GetChildren()) do
+                    if item:IsA("Tool") and item.Name ~= Settings.Tool then
+                        pcall(function()
+                            ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", item.Name)
+                        end)
+                    end
+                end
+            end
+        end)
+    end
+end
+
+local function AutoRaidRush()
 
     local MainMapID = 110029522258215
-    local RaidMapID = 123886389200671
+    local RaidRushMapID = 123886389200671
 
     if game.PlaceId == MainMapID then
 
@@ -434,7 +525,7 @@ local function AutoRaid()
             end)
         end)
 
-    elseif game.PlaceId == RaidMapID then
+    elseif game.PlaceId == RaidRushMapID then
 
         task.spawn(function()
 
@@ -485,13 +576,11 @@ local function AutoRaid()
 
                 if Settings.Enabled then
                     PressKey("Z")
-                    task.wait(0.01)
+                    task.wait(0.001)
                     PressKey("X")
-                    task.wait(0.01)
-                    PressKey("C")
-                    task.wait(0.01)
+                    task.wait(0.001)
                     PressKey("V")
-                    task.wait(0.01)
+                    task.wait(0.001)
                     PressKey("F")
                 end
 
@@ -841,6 +930,17 @@ Tabs.Farm:AddToggle("AutoSummon", {
         Settings.AutoSummon = v
         if v then 
             task.spawn(AutoSummonLoop) 
+        end
+    end
+})
+
+Tabs.Farm:AddToggle("AutoRaidRush", {
+    Title = "Auto Raid Rush",
+    Default = false,
+    Callback = function(v)
+        Settings.AutoRaidRush = v
+        if v then
+            AutoRaidRush()
         end
     end
 })
