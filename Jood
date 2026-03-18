@@ -390,8 +390,8 @@ local function BossRushClickAction()
             task.wait(0.2)
 
             local viewport = camera.ViewportSize
-            local centerX = viewport.X / 2
-            local centerY = viewport.Y / 2
+            local centerX = (viewport.X / 2)
+            local centerY = (viewport.Y / 2) - 20
 
             VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
             task.wait(0.05)
