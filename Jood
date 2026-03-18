@@ -501,40 +501,28 @@ local function AutoRaid()
 end
 
 local function AutoRaidRush()
-
     local MainMapID = 110029522258215
     local RaidRushMapID = 123886389200671
+    local TargetPos = Vector3.new(11.02020263671875, 175, -294.40069580078125)
+    local WeaponName = "Qin Shi Huang"
 
     if game.PlaceId == MainMapID then
-
-        task.spawn(function()
-            pcall(function()
-
-                local hrp = getHRP()
-                if not hrp then return end
-
+        pcall(function()
+            local hrp = getHRP()
+            if hrp then
                 BossRushClickAction()
-
                 task.wait(0.5)
-
                 local rushPart = workspace:FindFirstChild("BossRushPart")
-                if rushPart then
-                    hrp.CFrame = rushPart:GetPivot()
-                end
-
-            end)
+                if rushPart then hrp.CFrame = rushPart:GetPivot() end
+            end
         end)
-
     elseif game.PlaceId == RaidRushMapID then
-
         task.spawn(function()
-
+            local player = game.Players.LocalPlayer
             local playerGui = player:WaitForChild("PlayerGui")
             local raidGui = playerGui:WaitForChild("Raid")
-
-            local startBtn = raidGui:WaitForChild("Start",5)
-			local autoSkipBtn = raidGui:WaitForChild("AutoSkip", 5)
-
+            
+            local startBtn = raidGui:WaitForChild("Start", 5)
             if startBtn then
                 clickGuiButton(startBtn)
                 task.wait(0.2)
@@ -543,57 +531,51 @@ local function AutoRaidRush()
 
             task.wait(1)
 
+            local autoSkipBtn = raidGui:WaitForChild("AutoSkip", 5)
             if autoSkipBtn then
                 clickGuiButton(autoSkipBtn)
             end
 
-			PressKey("J")
+            PressKey("J")
 
-            Settings.Monsters = GetAllRaidMobs()
+            while Settings.AutoRaidRush do
+                pcall(function()
+                    local character = player.Character
+                    if not character then return end
+					local hrp = character:FindFirstChild("HumanoidRootPart")
+                    local hum = character:FindFirstChildOfClass("Humanoid")
 
-            if not Settings.Enabled then
-                Settings.Tool = "Aizen"
-                Settings.Enabled = true
-                task.spawn(AutoFarmLoop)
-            end
-
-            while Settings.AutoRaidRush and task.wait(1) do
-
-                Settings.Monsters = GetAllRaidMobs()
-
-                local finishGui = raidGui:FindFirstChild("End")
-                if finishGui and finishGui.Visible then
-                    break
-                end
-
-                local waveLabel = raidGui:FindFirstChild("Wave")
-                if waveLabel and waveLabel.Text == "[Wave 14/15]" and not waveSkipped then
-					waveSkipped = true
-                    if autoSkipBtn then
-                        clickGuiButton(autoSkipBtn)
+					local tool = player.Backpack:FindFirstChild(WeaponName)
+                    if tool then
+                        hum:EquipTool(tool)
                     end
-                end
 
-                if Settings.Enabled then
-                    PressKey("Z")
-                    task.wait(0.001)
-                    PressKey("X")
-                    task.wait(0.001)
-                    PressKey("V")
-                    task.wait(0.001)
-                    PressKey("F")
-                end
+                    if hrp and hum then
+						hum.AutoRotate = false
+                        hrp.CFrame = CFrame.new(TargetPos) * CFrame.Angles(math.rad(-90), 0, 0)
+						hrp.Velocity = Vector3.new(0, 0, 0)
+                        hrp.RotVelocity = Vector3.new(0, 0, 0)
 
-                for _, item in ipairs(player.Backpack:GetChildren()) do
-                    if item:IsA("Tool") and item.Name ~= Settings.Tool then
-                        pcall(function()
-                            ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", item.Name)
-                        end)
+						for _, part in ipairs(character:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                            part.CanCollide = false
+                            end
+                        end
+
+						PressKey("Z")
+                        PressKey("X")
                     end
+                end)
+                
+                task.wait() 
+                
+                local endGui = raidGui:FindFirstChild("End")
+                if endGui and endGui.Visible then 
+                    local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                    if hum then hum.AutoRotate = true end
+                    break 
                 end
-
             end
-
         end)
     end
 end
