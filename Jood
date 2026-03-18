@@ -557,7 +557,7 @@ local function AutoRaidRush()
                 task.spawn(AutoFarmLoop)
             end
 
-            while Settings.AutoRaid and task.wait(1) do
+            while Settings.AutoRaidRush and task.wait(1) do
 
                 Settings.Monsters = GetAllRaidMobs()
 
