@@ -466,8 +466,6 @@ local function AutoRaid()
                 local raidPath = workspace:FindFirstChild("RaidPath")
                 if raidPath then
                     hrp.CFrame = raidPath:GetPivot()
-					ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", "Raid Ticket")
-					ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", "Raid Ticket")
                 end
             end)
         end)
@@ -537,9 +535,11 @@ local function AutoRaidRush()
             local hrp = getHRP()
             if hrp then
                 BossRushClickAction()
-                task.wait(0.5)
+                task.wait(1)
                 local rushPart = workspace:FindFirstChild("BossRushPart")
                 if rushPart then hrp.CFrame = rushPart:GetPivot() end
+				ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", "Rush Ticket")
+				ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", "Rush Ticket")
             end
         end)
     elseif game.PlaceId == RaidRushMapID then
