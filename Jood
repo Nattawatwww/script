@@ -445,6 +445,8 @@ local function AutoRaid()
                 local raidPath = workspace:FindFirstChild("RaidPath")
                 if raidPath then
                     hrp.CFrame = raidPath:GetPivot()
+					ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", "Raid Ticket")
+					ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", "Raid Ticket")
                 end
             end)
         end)
@@ -547,35 +549,23 @@ local function AutoRaidRush()
                     if not character then return end
 					local hrp = character:FindFirstChild("HumanoidRootPart")
                     local hum = character:FindFirstChildOfClass("Humanoid")
-
 					local tool = player.Backpack:FindFirstChild(WeaponName)
                     if tool then
                         hum:EquipTool(tool)
                     end
 
                     if hrp and hum then
-						hum.AutoRotate = false
                         hrp.CFrame = CFrame.new(TargetPos) * CFrame.Angles(math.rad(-90), 0, 0)
 						hrp.Velocity = Vector3.new(0, 0, 0)
                         hrp.RotVelocity = Vector3.new(0, 0, 0)
-
-						for _, part in ipairs(character:GetDescendants()) do
-                            if part:IsA("BasePart") then
-                            part.CanCollide = false
-                            end
-                        end
 
 						PressKey("Z")
                         PressKey("X")
                     end
                 end)
                 
-                task.wait() 
-                
                 local endGui = raidGui:FindFirstChild("End")
                 if endGui and endGui.Visible then 
-                    local hum = player.Character:FindFirstChildOfClass("Humanoid")
-                    if hum then hum.AutoRotate = true end
                     break 
                 end
             end
