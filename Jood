@@ -412,6 +412,27 @@ local function BossRushClickAction()
     end
 end
 
+local function ServerHop()
+    local HttpService = game:GetService("HttpService")
+    local TeleportService = game:GetService("TeleportService")
+    local MainMapID = 110029522258215
+    local player = game.Players.LocalPlayer
+    local url = "https://games.roblox.com/v1/games/" .. MainMapID .. "/servers/Public?sortOrder=Asc&limit=100"
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(url))
+    end)
+
+    if success and result and result.data then
+        for _, server in ipairs(result.data) do
+            if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                print("Server found! Joining Server ID: " .. server.id)
+                TeleportService:TeleportToPlaceInstance(MainMapID, server.id, player)
+                return
+            end
+        end
+    end
+end
+
 local function AutoRaid()
     local MainMapID = 110029522258215 
     local RaidMapID = 123886389200671
@@ -566,6 +587,8 @@ local function AutoRaidRush()
                 
                 local endGui = raidGui:FindFirstChild("End")
                 if endGui and endGui.Visible then 
+					task.wait(1)
+					ServerHop()
                     break 
                 end
             end
