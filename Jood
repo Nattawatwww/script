@@ -50,7 +50,7 @@ local Settings = {
     Tool = nil,
     Position = "Above",
     Distance = 9,
-    Skills = { Z = false, X = false, C = false, V = false, B = false },
+    Skills = { Z = false, X = false, C = false, V = false, F = false },
     SelectedCraftItem = "Gojo Meat",
     SelectedStoreItem = {},
 }
@@ -1047,7 +1047,7 @@ Tabs.Auto:AddToggle("RandomCrate", {
 })
 
 
-for _, k in ipairs({"Z", "X", "C", "V", "B"}) do
+for _, k in ipairs({"Z", "X", "C", "V", "F"}) do
     Tabs.Skills:AddToggle("Skill"..k, {
         Title = "Skill ["..k.."]",
         Default = false,
@@ -1121,10 +1121,33 @@ Tabs.Settings:AddToggle("AFK", {
     end
 })
 
+local function GuaranteeHogyoku()
+    local playerGui = player:WaitForChild("PlayerGui", 20)
+    if not playerGui then return end
+
+    local targetLabel = playerGui.MainGui.GUARANTEE.Main.Hogyoku.Frame:FindFirstChild("TextLabel1", true) 
+    if not targetLabel then return end
+    local targetText = "8/8 Boss Kill"
+    local isClaimed = false
+
+    local function checkAndFire()
+        if not isClaimed and targetLabel.Text == targetText then
+            isClaimed = true
+            game:GetService("ReplicatedStorage").System.Guarantee:FireServer("Hogyoku")
+        elseif targetLabel.Text ~= targetText then
+            isClaimed = false
+        end
+    end
+
+    targetLabel:GetPropertyChangedSignal("Text"):Connect(checkAndFire)
+    checkAndFire()
+end
+
 player.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new(0,0))
 end)
 
+task.spawn(GuaranteeHogyoku)
 RefreshList()
 Window:SelectTab(1)
