@@ -1134,6 +1134,8 @@ local function GuaranteeHogyoku()
         if not isClaimed and targetLabel.Text == targetText then
             isClaimed = true
             game:GetService("ReplicatedStorage").System.Guarantee:FireServer("Hogyoku")
+			task.wait(0.1)
+			ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", "Hogyoku")
         elseif targetLabel.Text ~= targetText then
             isClaimed = false
         end
