@@ -1137,3 +1137,4 @@ end)
 
 task.spawn(GuaranteeHogyoku)
 RefreshList()
+Window:SelectTab(1)
