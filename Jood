@@ -412,27 +412,6 @@ local function BossRushClickAction()
     end
 end
 
-local function ServerHop()
-    local HttpService = game:GetService("HttpService")
-    local TeleportService = game:GetService("TeleportService")
-    local MainMapID = 110029522258215
-    local player = game.Players.LocalPlayer
-    local url = "https://games.roblox.com/v1/games/" .. MainMapID .. "/servers/Public?sortOrder=Asc&limit=100"
-    local success, result = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet(url))
-    end)
-
-    if success and result and result.data then
-        for _, server in ipairs(result.data) do
-            if server.playing < server.maxPlayers and server.id ~= game.JobId then
-                print("Server found! Joining Server ID: " .. server.id)
-                TeleportService:TeleportToPlaceInstance(MainMapID, server.id, player)
-                return
-            end
-        end
-    end
-end
-
 local function AutoRaid()
     local MainMapID = 110029522258215 
     local RaidMapID = 123886389200671
@@ -475,12 +454,13 @@ local function AutoRaid()
             local playerGui = player:WaitForChild("PlayerGui")
             local raidGui = playerGui:WaitForChild("Raid")
             local startBtn = raidGui:WaitForChild("Start", 5)
+			local autoSkipBtn = raidGui:WaitForChild("AutoSkip", 5)
+			local ReplayBtn = raidGui:WaitForChild("Replay", 5)
 
             if startBtn then clickGuiButton(startBtn) end
 			task.wait(0.3)
 			if startBtn then clickGuiButton(startBtn) end
             task.wait(0.3)
-            local autoSkipBtn = raidGui:WaitForChild("AutoSkip", 5)
             if autoSkipBtn then clickGuiButton(autoSkipBtn) end
             
             if not Settings.Enabled then
@@ -501,6 +481,9 @@ local function AutoRaid()
             while Settings.AutoRaid and task.wait(1) do
                 local finishGui = raidGui:FindFirstChild("End") 
 				if finishGui and finishGui.Visible then
+					if autoSkipBtn then 
+				        clickGuiButton(ReplayBtn) 
+			        end
                     break
                 end
 
@@ -547,8 +530,10 @@ local function AutoRaidRush()
             local player = game.Players.LocalPlayer
             local playerGui = player:WaitForChild("PlayerGui")
             local raidGui = playerGui:WaitForChild("Raid")
-            
-            local startBtn = raidGui:WaitForChild("Start", 5)
+			local startBtn = raidGui:WaitForChild("Start", 5)
+			local autoSkipBtn = raidGui:WaitForChild("AutoSkip", 5)
+			local ReplayBtn = raidGui:WaitForChild("Replay", 5)
+
             if startBtn then
                 clickGuiButton(startBtn)
                 task.wait(0.2)
@@ -557,10 +542,9 @@ local function AutoRaidRush()
 
             task.wait(1)
 
-            local autoSkipBtn = raidGui:WaitForChild("AutoSkip", 5)
-            if autoSkipBtn then
-                clickGuiButton(autoSkipBtn)
-            end
+            if autoSkipBtn then 
+				clickGuiButton(autoSkipBtn) 
+			end
 
             PressKey("J")
 
@@ -588,7 +572,9 @@ local function AutoRaidRush()
                 local endGui = raidGui:FindFirstChild("End")
                 if endGui and endGui.Visible then 
 					task.wait(1)
-					ServerHop()
+					if autoSkipBtn then 
+				        clickGuiButton(ReplayBtn) 
+			        end
                     break 
                 end
             end
@@ -1152,4 +1138,3 @@ end)
 
 task.spawn(GuaranteeHogyoku)
 RefreshList()
-Window:SelectTab(1)
