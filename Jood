@@ -480,7 +480,7 @@ local function AutoRaid()
             while Settings.AutoRaid and task.wait(1) do
                 local finishGui = raidGui:FindFirstChild("End") 
 				if finishGui and finishGui.Visible then
-					if autoSkipBtn then 
+					if ReplayBtn then 
 				        clickGuiButton(ReplayBtn) 
 			        end
                 end
@@ -572,7 +572,7 @@ local function AutoRaidRush()
                 local endGui = raidGui:FindFirstChild("End")
                 if endGui and endGui.Visible then 
 					task.wait(1)
-					if autoSkipBtn then 
+					if ReplayBtn then 
 				        clickGuiButton(ReplayBtn) 
 			        end
                 end
