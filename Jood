@@ -71,8 +71,6 @@ local IslandLocations = {
 
 local CurrentTarget = nil
 
-local args = {{{"Skill","A",},"\004"}}
-
 local function getMonsterRoots()
     local roots = {}
     if workspace:FindFirstChild("Mobs") then
@@ -217,7 +215,7 @@ local function AutoFarmLoop()
                 myHRP.CFrame = CFrame.lookAt(targetCFrame.Position, mobHRP.Position)
                 myHRP.Velocity = Vector3.new(0,0,0)
 
-                game:GetService("ReplicatedStorage"):WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer(unpack(args))
+                game:GetService("ReplicatedStorage").BridgeNet2.dataRemoteEvent:FireServer({[1] = {[1] = "Skill",[2] = "A",},[2] = "",})
             end
         end)
     end
@@ -462,6 +460,7 @@ local function AutoRaid()
 			if startBtn then clickGuiButton(startBtn) end
             task.wait(0.3)
             if autoSkipBtn then clickGuiButton(autoSkipBtn) end
+			PressKey("J")
             
             if not Settings.Enabled then
                 Settings.Tool = "Aizen"
@@ -484,13 +483,14 @@ local function AutoRaid()
 					if autoSkipBtn then 
 				        clickGuiButton(ReplayBtn) 
 			        end
-                    break
                 end
 
                 if Settings.Enabled then
 					PressKey("Z")
 					task.wait(0.001)
 				    PressKey("X")
+					task.wait(0.001)
+					PressKey("C")
 					task.wait(0.001)
                     PressKey("V")
                 end
@@ -575,7 +575,6 @@ local function AutoRaidRush()
 					if autoSkipBtn then 
 				        clickGuiButton(ReplayBtn) 
 			        end
-                    break 
                 end
             end
         end)
