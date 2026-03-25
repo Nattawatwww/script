@@ -564,6 +564,7 @@ local function AutoRaidRush()
 
 						PressKey("Z")
                         PressKey("X")
+						PressKey("C")
                     end
                 end)
                 
