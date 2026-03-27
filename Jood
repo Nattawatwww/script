@@ -488,6 +488,7 @@ local function AutoRaid()
                 if Settings.Enabled then
 					PressKey("Z")
 				    PressKey("X")
+					PressKey("V")
                 end
 
                 for _, item in ipairs(player.Backpack:GetChildren()) do
