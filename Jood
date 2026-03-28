@@ -1107,24 +1107,74 @@ local function GuaranteeHogyoku()
     local playerGui = player:WaitForChild("PlayerGui", 20)
     if not playerGui then return end
 
-    local targetLabel = playerGui.MainGui.GUARANTEE.Main.Hogyoku.Frame:FindFirstChild("TextLabel1", true) 
-    if not targetLabel then return end
+    local targetLabelHogyoku = playerGui.MainGui.GUARANTEE.Main.Hogyoku.Frame:FindFirstChild("TextLabel1", true) 
+    if not targetLabelHogyoku then return end
     local targetText = "8/8 Boss Kill"
     local isClaimed = false
 
-    local function checkAndFire()
-        if not isClaimed and targetLabel.Text == targetText then
+    local function FireHogyoku()
+        if not isClaimed and targetLabelHogyoku.Text == targetText then
             isClaimed = true
             game:GetService("ReplicatedStorage").System.Guarantee:FireServer("Hogyoku")
 			task.wait(0.1)
 			ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", "Hogyoku")
-        elseif targetLabel.Text ~= targetText then
+        elseif targetLabelHogyoku.Text ~= targetText then
             isClaimed = false
         end
     end
 
-    targetLabel:GetPropertyChangedSignal("Text"):Connect(checkAndFire)
-    checkAndFire()
+    targetLabelHogyoku:GetPropertyChangedSignal("Text"):Connect(FireHogyoku)
+    FireHogyoku()
+end
+
+local function GuaranteeItachiEye()
+    local playerGui = player:WaitForChild("PlayerGui", 20)
+    if not playerGui then return end
+
+    local targetLabel1 = playerGui.MainGui.GUARANTEE.Main:FindFirstChild("Itachi Eye") 
+	local targetLabelItachiEye = targetLabel1.Frame:FindFirstChild("TextLabel1", true)
+    if not targetLabelItachiEye then return end
+    local targetText = "20/20 Boss Kill"
+    local isClaimed = false
+
+    local function FireItachiEye()
+        if not isClaimed and targetLabelItachiEye.Text == targetText then
+            isClaimed = true
+            game:GetService("ReplicatedStorage").System.Guarantee:FireServer("Itachi Eye")
+			task.wait(0.1)
+			ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", "Itachi Eye")
+        elseif targetLabelItachiEye.Text ~= targetText then
+            isClaimed = false
+        end
+    end
+
+    targetLabelItachiEye:GetPropertyChangedSignal("Text"):Connect(FireItachiEye)
+    FireItachiEye()
+end
+
+local function GuaranteeUICore()
+    local playerGui = player:WaitForChild("PlayerGui", 20)
+    if not playerGui then return end
+
+    local targetLabel1 = playerGui.MainGui.GUARANTEE.Main:FindFirstChild("UI Core") 
+	local targetLabelUICore = targetLabel1.Frame:FindFirstChild("TextLabel1", true) 
+    if not targetLabelUICore then return end
+    local targetText = "25/25 Boss Kill"
+    local isClaimed = false
+
+    local function FireUICore()
+        if not isClaimed and targetLabelUICore.Text == targetText then
+            isClaimed = true
+            game:GetService("ReplicatedStorage").System.Guarantee:FireServer("UI Core")
+			task.wait(0.1)
+			ReplicatedStorage.System.Inv.Inventory:InvokeServer("Add", "UI Core")
+        elseif targetLabelUICore.Text ~= targetText then
+            isClaimed = false
+        end
+    end
+
+    targetLabelUICore:GetPropertyChangedSignal("Text"):Connect(FireUICore)
+    FireUICore()
 end
 
 player.Idled:Connect(function()
@@ -1133,5 +1183,7 @@ player.Idled:Connect(function()
 end)
 
 task.spawn(GuaranteeHogyoku)
+task.spawn(GuaranteeItachiEye)
+task.spawn(GuaranteeUICore)
 RefreshList()
 Window:SelectTab(1)
