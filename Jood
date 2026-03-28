@@ -507,7 +507,7 @@ local function AutoRaidRush()
     local MainMapID = 110029522258215
     local RaidRushMapID = 123886389200671
     local TargetPos = Vector3.new(11.02020263671875, 175, -294.40069580078125)
-    local WeaponName = "Qin Shi Huang"
+    local WeaponName = "MUI"
 
     if game.PlaceId == MainMapID then
         pcall(function()
@@ -556,13 +556,14 @@ local function AutoRaidRush()
                     end
 
                     if hrp and hum then
+						hum.PlatformStand = true
                         hrp.CFrame = CFrame.new(TargetPos) * CFrame.Angles(math.rad(-90), 0, 0)
 						hrp.Velocity = Vector3.new(0, 0, 0)
-                        hrp.RotVelocity = Vector3.new(0, 0, 0)
+						hrp.RotVelocity = Vector3.new(0, 0, 0)
 
 						PressKey("Z")
                         PressKey("X")
-						PressKey("C")
+						PressKey("V")
                     end
                 end)
                 
