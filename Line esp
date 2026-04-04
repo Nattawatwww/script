@@ -1,0 +1,119 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local function CreateLine()
+    local Line = Drawing.new("Line")
+    Line.Visible = false
+    Line.Color = Color3.fromRGB(255, 255, 255)
+    Line.Thickness = 1
+    return Line
+end
+
+local function CreateESP(player)
+    local Box = Drawing.new("Square")
+    Box.Visible = false
+    Box.Color = Color3.fromRGB(255, 255, 255)
+    Box.Thickness = 1
+    Box.Filled = false
+
+    local HeadCircle = Drawing.new("Circle")
+    HeadCircle.Visible = false
+    HeadCircle.Color = Color3.fromRGB(255, 255, 255)
+    HeadCircle.Thickness = 1
+    HeadCircle.NumSides = 30
+    HeadCircle.Radius = 5
+    HeadCircle.Filled = false
+
+    local HealthBar = Drawing.new("Line")
+    HealthBar.Visible = false
+    HealthBar.Thickness = 2
+
+    local Skeleton = {
+        UtoH = CreateLine(), UtoLUA = CreateLine(), LUtoLL = CreateLine(),
+        UtoRUA = CreateLine(), RUtoRL = CreateLine(), UtoLT = CreateLine(),
+        LtoLUL = CreateLine(), LUtoLLg = CreateLine(), LtoRUL = CreateLine(),
+        RUtoRLg = CreateLine()
+    }
+
+    local function Update()
+        local Connection
+        Connection = RunService.RenderStepped:Connect(function()
+            local Char = player.Character
+            if Char and Char:FindFirstChild("HumanoidRootPart") and Char:FindFirstChild("Head") and Char:FindFirstChild("Humanoid") then
+                local Hum = Char.Humanoid
+                local HRP = Char.HumanoidRootPart
+                local Head = Char.Head
+                
+                local Pos, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
+                if OnScreen then
+                    -- คำนวณขนาดสี่เหลี่ยมให้พอดีตัว
+                    local HeadPos = Camera:WorldToViewportPoint(Head.Position + Vector3.new(0, 0.5, 0))
+                    local LegPos = Camera:WorldToViewportPoint(HRP.Position - Vector3.new(0, 3, 0))
+                    local Height = math.abs(HeadPos.Y - LegPos.Y)
+                    local Width = Height / 1.5
+
+                    Box.Size = Vector2.new(Width, Height)
+                    Box.Position = Vector2.new(Pos.X - Width / 2, Pos.Y - Height / 2)
+                    Box.Visible = true
+
+                    -- วงกลมที่หัว
+                    local HVector = Camera:WorldToViewportPoint(Head.Position)
+                    HeadCircle.Position = Vector2.new(HVector.X, HVector.Y)
+                    HeadCircle.Radius = Height / 10
+                    HeadCircle.Visible = true
+
+                    -- หลอดเลือด
+                    local HealthHeight = Height * (Hum.Health / Hum.MaxHealth)
+                    HealthBar.From = Vector2.new(Box.Position.X - 5, Box.Position.Y + Height)
+                    HealthBar.To = Vector2.new(Box.Position.X - 5, Box.Position.Y + Height - HealthHeight)
+                    HealthBar.Color = Color3.fromHSV(Hum.Health/Hum.MaxHealth * 0.3, 1, 1)
+                    HealthBar.Visible = true
+
+                    local function GetPos(PartName)
+                        local Part = Char:FindFirstChild(PartName)
+                        if Part then
+                            local V, Confirmed = Camera:WorldToViewportPoint(Part.Position)
+                            return Confirmed and Vector2.new(V.X, V.Y) or nil
+                        end
+                    end
+
+                    local J = {
+                        H = GetPos("Head"), UT = GetPos("UpperTorso") or GetPos("Torso"),
+                        LT = GetPos("LowerTorso") or GetPos("Torso"), LUA = GetPos("LeftUpperArm") or GetPos("Left Arm"),
+                        LLA = GetPos("LeftLowerArm") or GetPos("Left Arm"), RUA = GetPos("RightUpperArm") or GetPos("Right Arm"),
+                        RLA = GetPos("RightLowerArm") or GetPos("Right Arm"), LUL = GetPos("LeftUpperLeg") or GetPos("Left Leg"),
+                        LLL = GetPos("LeftLowerLeg") or GetPos("Left Leg"), RUL = GetPos("RightUpperLeg") or GetPos("Right Leg"),
+                        RLL = GetPos("RightLowerLeg") or GetPos("Right Leg")
+                    }
+
+                    local function Con(L, P1, P2)
+                        if P1 and P2 then L.From = P1 L.To = P2 L.Visible = true else L.Visible = false end
+                    end
+
+                    Con(Skeleton.UtoH, J.UT, J.H) Con(Skeleton.UtoLUA, J.UT, J.LUA)
+                    Con(Skeleton.LUtoLL, J.LUA, J.LLA) Con(Skeleton.UtoRUA, J.UT, J.RUA)
+                    Con(Skeleton.RUtoRL, J.RUA, J.RLA) Con(Skeleton.UtoLT, J.UT, J.LT)
+                    Con(Skeleton.LtoLUL, J.LT, J.LUL) Con(Skeleton.LUtoLLg, J.LUL, J.LLL)
+                    Con(Skeleton.LtoRUL, J.LT, J.RUL) Con(Skeleton.RUtoRLg, J.RUL, J.RLL)
+                else
+                    Box.Visible = false HeadCircle.Visible = false HealthBar.Visible = false
+                    for _, v in pairs(Skeleton) do v.Visible = false end
+                end
+            else
+                Box.Visible = false HeadCircle.Visible = false HealthBar.Visible = false
+                for _, v in pairs(Skeleton) do v.Visible = false end
+                if not player.Parent then
+                    Box:Remove() HeadCircle:Remove() HealthBar:Remove()
+                    for _, v in pairs(Skeleton) do v:Remove() end
+                    Connection:Disconnect()
+                end
+            end
+        end)
+    end
+    coroutine.wrap(Update)()
+end
+
+for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then CreateESP(p) end end
+Players.PlayerAdded:Connect(function(p) CreateESP(p) end)
