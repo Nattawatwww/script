@@ -1,0 +1,86 @@
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+-- ===== SETTINGS =====
+local BoxTeleport = Vector3.new(-7.49616003036499, 2.421875, 695.7802124023438)
+local SellTeleport = Vector3.new(1891.42871, 3.57726622, 849.805542)
+
+-- CFrame กล้องที่ให้มา
+local LookCamera = CFrame.new(
+    5.54285908, 5.5678606, 695.778931,
+   -0.0767193884, -0.271477818, -0.959382117,
+    0, 0.962218046, -0.272280306,
+    0.997052729, -0.0208891779, -0.0738207772
+)
+
+local loopEnabled = false
+local runningThread = nil
+
+local function setPrompt(prompt)
+    if prompt:IsA("ProximityPrompt") then
+        prompt.HoldDuration = 0
+    end
+end
+
+-- วาป
+local function teleportTo(pos)
+    local char = player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = CFrame.new(pos)
+    end
+end
+
+-- กด E ครั้งเดียว
+local function pressE()
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+    task.wait(0.05)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+end
+
+-- LOOP
+local function startLoop()
+    runningThread = task.spawn(function()
+        while loopEnabled do
+		    teleportTo(BoxTeleport)
+
+            Camera.CFrame = LookCamera
+            task.wait(0.3)
+
+            pressE()
+			pressE()
+            task.wait(0.5)
+
+            teleportTo(SellTeleport)
+
+			task.wait(0.3)
+
+			teleportTo(BoxTeleport)
+            task.wait(1.5)
+        end
+    end)
+end
+
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.B then
+        loopEnabled = not loopEnabled
+        print("Auto Box:", loopEnabled and "ON" or "OFF")
+
+        if loopEnabled then
+            startLoop()
+        end
+    end
+end)
+
+for _, v in ipairs(workspace:GetDescendants()) do
+    setPrompt(v)
+end
+
+workspace.DescendantAdded:Connect(function(desc)
+    setPrompt(desc)
+end)
