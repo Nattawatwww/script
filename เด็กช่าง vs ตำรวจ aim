@@ -1,0 +1,107 @@
+local Settings = {
+    Keybind = Enum.KeyCode.T,
+    FOV = 60,
+    Smoothness = 1,
+    Prediction = 0,
+    AimPart = "Head", 
+    VisibleCheck = true,
+    TeamCheck = true
+}
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local Player = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Locking = false
+
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = true
+FOVCircle.Thickness = 1
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Radius = Settings.FOV
+FOVCircle.Filled = false
+FOVCircle.Transparency = 1
+FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+
+local function IsVisible(targetPart)
+    if not Settings.VisibleCheck then return true end
+    
+    local rayOrigin = Camera.CFrame.Position
+    local rayDirection = (targetPart.Position - rayOrigin)
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {Player.Character, Camera}
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    raycastParams.IgnoreWater = true
+
+    local result = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+    
+    if result then
+        return result.Instance:IsDescendantOf(targetPart.Parent)
+    end
+    
+    return false
+end
+
+local function GetClosestToCenter()
+    local closest = nil
+    local shortestDist = Settings.FOV
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= Player and p.Character then
+            
+            if Settings.TeamCheck and p.Team == Player.Team then continue end
+
+            local humanoid = p.Character:FindFirstChildOfClass("Humanoid")
+            if not humanoid or humanoid.Health <= 0 then
+                continue
+            end
+
+            local targetPart = p.Character:FindFirstChild(Settings.AimPart)
+            if targetPart then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                if onScreen then
+                    local dist = (center - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                    if dist < shortestDist then
+                        if IsVisible(targetPart) then
+                            closest = targetPart
+                            shortestDist = dist
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Settings.Keybind then
+        Locking = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Settings.Keybind then
+        Locking = false
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    
+    if Locking then
+        local target = GetClosestToCenter()
+        if target then
+            local predictionOffset = target.AssemblyLinearVelocity * Settings.Prediction
+            local aimPosition = target.Position + predictionOffset
+            
+            local targetCF = CFrame.lookAt(Camera.CFrame.Position, aimPosition)
+            Camera.CFrame = Camera.CFrame:Lerp(targetCF, Settings.Smoothness)
+        end
+    end
+end)
